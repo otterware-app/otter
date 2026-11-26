@@ -3,10 +3,13 @@ import {
   captureException,
   captureMessage,
   getClient,
+  startSpan,
   type Breadcrumb,
   type ErrorEvent,
   type Event,
   type Options,
+  type TracesSamplerSamplingContext,
+  type TransactionEvent,
 } from "@sentry/core";
 
 import { releaseChannel } from "./release-channel.ts";
@@ -17,12 +20,23 @@ export const SENTRY_DSN = {
   web: "https://7f770b56a78c138844e07a6977df9b43@o4512364656459776.ingest.de.sentry.io/4512364729270352",
   relay:
     "https://e4aca7bd12ed2618a2512e44546ad947@o4512364656459776.ingest.de.sentry.io/4512364730581072",
+  site: "https://45d34e7cd05cb6cc35869f8c60375764@o4512364656459776.ingest.de.sentry.io/4512499033309264",
+  agents:
+    "https://9408f6131b91d434b3aa76802ad9fceb@o4512364656459776.ingest.de.sentry.io/4512499033505872",
 } as const;
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
-/** What kind of mailbox an error happened in, from fixed lists (e.g. `provider`, `server`); never who. */
+/** What an error happened in: the kind of mailbox (`provider`, `server`), the agent (`agent`). */
 export type ReportTags = Record<string, string>;
+
+/** Who an event came from: the Otter account when signed in, else this install's report id. */
+export type ReportUser = { id: string; email?: string; username?: string };
+
+/** Every transaction is kept while Otter has few users; lower it when Sentry's quota says so. */
+export const TRACES_SAMPLE_RATE = 1;
+/** Handlers run many times a minute: a tenth of them is enough to see what's slow. */
+const SAMPLE_RATE_BY_OP: Record<string, number> = { "ipc.handler": 0.1 };
 
 export function reportEnvironment(version: string, release: boolean): string {
   return release ? releaseChannel(version) : "development";
@@ -33,7 +47,8 @@ export function errorReportOptions(opts: {
   version: string;
   release?: string;
   environment: string;
-  allowed?: (event: ErrorEvent) => boolean;
+  tracesSampleRate?: number;
+  allowed?: (event: Event) => boolean;
 }): Options {
   return {
     dsn: opts.dsn || undefined,
@@ -41,9 +56,18 @@ export function errorReportOptions(opts: {
     release: opts.release ?? `otter-mail@${opts.version}`,
     environment: opts.environment,
     sendClientReports: false,
-    maxBreadcrumbs: 50,
+    maxBreadcrumbs: 100,
+    // Whole transactions, not streamed spans: only those pass through beforeSendTransaction.
+    traceLifecycle: "static",
+    tracesSampler: (context: TracesSamplerSamplingContext) =>
+      context.inheritOrSampleWith(
+        SAMPLE_RATE_BY_OP[String(context.attributes?.["sentry.op"])] ??
+          opts.tracesSampleRate ??
+          TRACES_SAMPLE_RATE,
+      ),
+    // Requests carry sign-in tokens in their headers, cookies and bodies: those stay out.
     dataCollection: {
-      userInfo: false,
+      userInfo: true,
       cookies: false,
       httpHeaders: false,
       httpBodies: [],
@@ -55,7 +79,12 @@ export function errorReportOptions(opts: {
       stackFrameVariables: false,
     },
     beforeBreadcrumb: scrubBreadcrumb,
-    beforeSend: (event) => {
+    beforeSend: (event: ErrorEvent) => {
+      const scrubbed = scrubEvent(event);
+      return !opts.allowed || opts.allowed(scrubbed) ? scrubbed : null;
+    },
+    // Traces follow the same choice, and their spans' URLs can hold tokens (an APNs device's).
+    beforeSendTransaction: (event: TransactionEvent) => {
       const scrubbed = scrubEvent(event);
       return !opts.allowed || opts.allowed(scrubbed) ? scrubbed : null;
     },
@@ -65,11 +94,10 @@ export function errorReportOptions(opts: {
 /** Send held events directly: recapturing them triggers Sentry's deduplication. */
 export class ConsentGate {
   private enabled: boolean | undefined;
-  private held: ErrorEvent[] = [];
+  private held: Event[] = [];
 
   constructor(
-    private readonly send: (event: ErrorEvent) => unknown = (event) =>
-      getClient()?.sendEvent(event),
+    private readonly send: (event: Event) => unknown = (event) => getClient()?.sendEvent(event),
   ) {}
 
   set(enabled: boolean): void {
@@ -79,22 +107,19 @@ export class ConsentGate {
     if (enabled) for (const event of held) this.send(event);
   }
 
-  readonly allowed = (event: ErrorEvent): boolean => {
+  readonly allowed = (event: Event): boolean => {
     if (this.enabled === undefined && this.held.length < 20) this.held.push(event);
     return this.enabled === true;
   };
 }
 
-// Ends in a letter: `otter-mail@0.13.23` is a release, not an address.
-const EMAIL = /[\w.+-]+(?:@|%40)[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}\b/gi;
+/** Secrets only: who and what are kept, a token would let whoever reads the event in. */
 const SCRUBBED: [RegExp, string][] = [
-  [new RegExp(`${EMAIL.source}(/[^\\s"'<>?#]*)?`, "gi"), "[email]"],
   [/\b([Bb]earer|[Bb]asic)\s+[\w.~+/=-]+/g, "$1 [redacted]"],
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]*/g, "[token]"],
   [/\bya29\.[\w.-]+|\b1\/\/[\w-]{20,}/g, "[token]"],
   // Query strings carry searches and codes; keep the address before them.
   [/(\b[a-z][\w+.-]*:\/\/[^\s?"'<>]*)\?[^\s"'<>#]*/gi, "$1"],
-  [/(\/Users\/|\/home\/|\\Users\\)[^/\\\s"']+/g, "$1[user]"],
   [/[\w+=-]{48,}/g, "[redacted]"],
 ];
 
@@ -105,17 +130,21 @@ export function scrubText(text: string): string {
 }
 
 const DROPPED_KEYS = new Set(["vars", "cookies", "headers", "data", "query_string", "env"]);
-const KEPT_KEYS = new Set(["release", "environment", "dist", "sdk", "event_id", "trace_id"]);
+const KEPT_KEYS = new Set([
+  "release",
+  "environment",
+  "dist",
+  "sdk",
+  "event_id",
+  "trace_id",
+  "user",
+]);
 
 export function scrubEvent<E extends Event>(event: E): E {
   const scrubbed = scrubDeep(event, 0) as E;
   if (scrubbed.request) {
     scrubbed.request = scrubbed.request.url ? { url: scrubbed.request.url } : {};
   }
-  scrubbed.user = scrubbed.user?.id ? { id: scrubbed.user.id } : undefined;
-  // Sentry otherwise places the sender by its IP address (a city) before it drops it.
-  if (scrubbed.sdk) scrubbed.sdk = { ...scrubbed.sdk, settings: { infer_ip: "never" } };
-  delete scrubbed.server_name;
   return scrubbed;
 }
 
@@ -132,16 +161,20 @@ function scrubDeep(value: unknown, depth: number): unknown {
   return out;
 }
 
+/** The console repeats our own log lines, already breadcrumbs. */
 export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
-  const category = breadcrumb.category ?? "";
-  if (category === "console" || category.startsWith("ui.")) return null;
-  // Electron's own breadcrumbs name every page a window shows, the browser's tabs too:
-  // keep our window's routes, never what was browsed.
-  const url = breadcrumb.data?.url;
-  if (category === "electron" && typeof url === "string" && !url.startsWith("ottermail:")) {
-    breadcrumb = { ...breadcrumb, data: { ...breadcrumb.data, url: "[page]" } };
-  }
+  if (breadcrumb.category === "console") return null;
   return scrubDeep(breadcrumb, 2) as Breadcrumb;
+}
+
+/** A span in the current trace; without a Sentry client it only runs `work`. */
+export function measure<T>(
+  name: string,
+  op: string,
+  work: () => T,
+  attributes?: Record<string, string | number | boolean>,
+): T {
+  return startSpan({ name, op, attributes: { ...attributes, "sentry.op": op } }, work);
 }
 
 const reported = new Map<string, number>();

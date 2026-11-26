@@ -8,7 +8,7 @@ import type { AppSettings, ErrorReportsConfig } from "@otter/core";
 import { invokeBackend, setDockBadgeEnabled, startBackend, stopBackend } from "./backend-host.ts";
 import { registerHandlers } from "./handlers/index.ts";
 import { requestSupportReport } from "./handlers/support.ts";
-import { setErrorReportsAllowed, setReportId, startErrorReports } from "./error-reports.ts";
+import { followErrorReportsConfig, startErrorReports } from "./error-reports.ts";
 import { logger, logToFile } from "./logger.ts";
 import { hostOS } from "./os/index.ts";
 import type { AppMenuItems } from "./os/types.ts";
@@ -342,9 +342,7 @@ void app.whenReady().then(async () => {
     hostOS.setLaunchAtLogin(startupSettings.launchAtLogin);
   }
   setDockBadgeEnabled(startupSettings.dockBadgeEnabled);
-  void invokeBackend("errorReports:config").then((config) => {
-    const reports = config as ErrorReportsConfig;
-    setReportId(reports.reportId);
-    setErrorReportsAllowed(reports.enabled);
-  });
+  void invokeBackend("errorReports:config").then((config) =>
+    followErrorReportsConfig(config as ErrorReportsConfig),
+  );
 });

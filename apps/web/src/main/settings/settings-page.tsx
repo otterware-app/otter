@@ -378,7 +378,7 @@ function GeneralPane() {
                 />
               ) : null
             }
-            description="When something fails, tell Otterware what broke and where. Never your mail, addresses or passwords."
+            description="When something fails, tell Otterware what broke, where and for whom: your Otter account, the page you were on and what led to it. Never your mail itself, passwords or sign-in tokens."
             control={
               <Switch
                 id="errorReports"

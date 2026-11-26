@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/cloudflare";
 import { importPKCS8, SignJWT } from "jose";
 import type {
   AgentClearPushMetadata,
@@ -7,6 +8,7 @@ import type {
   NewMailPushMetadata,
 } from "@otter/contracts/relay";
 import type { Env } from "./worker.ts";
+import { log } from "./log.ts";
 import type { PushDevice } from "./push.ts";
 
 let cached: { key: string; token: Promise<string>; issuedAt: number } | undefined;
@@ -180,9 +182,16 @@ async function post(
   const collapse = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join(
     "",
   );
+  const fields = {
+    userId: device.user_id,
+    topic: device.topic,
+    environment: device.environment,
+    type,
+  };
   // Errors and retries are handled by the durable alarm, never logged with tokens/payloads.
+  let response: Response;
   try {
-    const response = await transport(`${origin}/3/device/${device.token}`, {
+    response = await transport(`${origin}/3/device/${device.token}`, {
       method: "POST",
       redirect: "manual",
       headers: {
@@ -197,28 +206,53 @@ async function post(
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });
-    if (response.status === 200) return "sent";
-    const error = (await response.json().catch(() => null)) as {
-      reason?: string;
-      timestamp?: number;
-    } | null;
-    if (response.status === 410) {
-      return error?.timestamp && error.timestamp < device.updated_at ? "rejected" : "invalid";
-    }
-    if (error?.reason === "BadDeviceToken" || error?.reason === "DeviceTokenNotForTopic")
-      return "invalid";
-    if (error?.reason === "ExpiredProviderToken") {
-      cached = undefined;
-      return "retry";
-    }
-    if (response.status >= 500) return { retryAfterMs: 15 * 60_000 };
-    if (error?.reason === "TooManyProviderTokenUpdates") return { retryAfterMs: 20 * 60_000 };
-    if (response.status === 429) return "retry";
-    console.warn("APNs rejected a notification", response.status);
-    return "rejected";
-  } catch {
+  } catch (error) {
+    const timeout = error instanceof Error && error.name === "TimeoutError";
+    log(
+      "apns.failed",
+      { ...fields, result: "retry", reason: timeout ? "timeout" : "error" },
+      "warn",
+    );
+    if (!timeout) Sentry.captureException(error, { tags: { provider: "apns" } });
     return "retry";
   }
+  if (response.status === 200) {
+    log("apns.sent", fields);
+    return "sent";
+  }
+  const error = (await response.json().catch(() => null)) as {
+    reason?: string;
+    timestamp?: number;
+  } | null;
+  const result = outcome(response.status, error, device);
+  const failed = { ...fields, status: response.status, reason: error?.reason, result };
+  log("apns.failed", failed, "warn");
+  if ((result === "rejected" && response.status !== 410) || response.status >= 500)
+    Sentry.captureException(new Error(`APNs answered ${response.status} ${error?.reason ?? ""}`), {
+      tags: { provider: "apns", status: String(response.status), reason: error?.reason ?? "none" },
+      user: { id: device.user_id },
+    });
+  return result;
+}
+
+/** What a refusal means: "invalid" (the token is gone, as when the app is deleted) is expected. */
+function outcome(
+  status: number,
+  error: { reason?: string; timestamp?: number } | null,
+  device: PushDevice,
+): Result {
+  if (status === 410)
+    return error?.timestamp && error.timestamp < device.updated_at ? "rejected" : "invalid";
+  if (error?.reason === "BadDeviceToken" || error?.reason === "DeviceTokenNotForTopic")
+    return "invalid";
+  if (error?.reason === "ExpiredProviderToken") {
+    cached = undefined;
+    return "retry";
+  }
+  if (status >= 500) return { retryAfterMs: 15 * 60_000 };
+  if (error?.reason === "TooManyProviderTokenUpdates") return { retryAfterMs: 20 * 60_000 };
+  if (status === 429) return "retry";
+  return "rejected";
 }
 
 export function newer(historyId: string, previous?: string): boolean {

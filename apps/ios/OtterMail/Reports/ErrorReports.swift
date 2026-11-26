@@ -2,7 +2,7 @@ import Foundation
 import Sentry
 import Synchronization
 
-/** Scrubbed error reports to Sentry, as on the Mac and the web (docs/error-reports.md). */
+/** Error reports to Sentry, as on the Mac and the web (docs/error-reports.md). */
 nonisolated enum ErrorReports {
     static let dsn = "https://8ab23b52535e531f2b75f22d02dae47c@o4512364656459776.ingest.de.sentry.io/4512364735496272"
     static let enabledKey = "otter:errorReports"
@@ -25,7 +25,17 @@ nonisolated enum ErrorReports {
         #endif
         guard !dsn.isEmpty else { return }
         SentrySDK.start(configureOptions: configure)
-        SentrySDK.setUser(User(userId: reportID))
+        SentrySDK.configureScope { $0.setContext(value: ["reportId": reportID], key: "install") }
+        identify(id: nil)
+    }
+
+    /** Who events come from: the Otter account when signed in, else this install's report id. */
+    static func identify(id: String?, email: String? = nil, name: String? = nil) {
+        guard isRunning else { return }
+        let user = User(userId: id ?? reportID)
+        user.email = email
+        user.username = name
+        SentrySDK.setUser(user)
     }
 
     static func configure(_ options: Options) {
@@ -38,21 +48,24 @@ nonisolated enum ErrorReports {
         options.environment = "production"
         #endif
         options.sendDefaultPii = false
-        options.maxBreadcrumbs = 50
+        options.maxBreadcrumbs = 100
         options.sendClientReports = false
         options.enableCrashHandler = true
-        options.tracesSampleRate = 0
-        options.enableAutoPerformanceTracing = false
-        options.enableAutoSessionTracking = false
+        // Every transaction is kept while Otter has few users, as on the Mac and the web.
+        options.tracesSampleRate = 1
+        options.enableAutoPerformanceTracing = true
+        options.enableAutoSessionTracking = true
         options.sessionReplay.sessionSampleRate = 0
         options.sessionReplay.onErrorSampleRate = 0
+        // They show mail, which Google's Limited Use rules keep people from reading.
         options.attachScreenshot = false
         options.attachViewHierarchy = false
-        options.enableSwizzling = false
-        options.enableUserInteractionTracing = false
-        options.enableAutoBreadcrumbTracking = false
-        options.enableNetworkBreadcrumbs = false
-        options.enableNetworkTracking = false
+        options.enableSwizzling = true
+        options.enableUIViewControllerTracing = true
+        options.enableUserInteractionTracing = true
+        options.enableAutoBreadcrumbTracking = true
+        options.enableNetworkBreadcrumbs = true
+        options.enableNetworkTracking = true
         options.enableCaptureFailedRequests = false
         options.enableLogs = false
         // Its hang tracker reads frames that stop while the app is idle as a blocked main thread

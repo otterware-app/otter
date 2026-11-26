@@ -52,6 +52,17 @@ bottom of Tools): it floats over the header's trailing buttons. Afterwards the a
 same Metro by itself, and any route opens by link: `dev.otterware.agents.dev://settings/chat`,
 `…://gallery`, `…://self-test` (each link asks "Open in…" again).
 
+## Error reports
+
+Release builds report to Sentry (`otter-agents-ios`, `SENTRY_DSN.agents` in
+`packages/shared/src/error-reports.ts`) as the desktop and web apps do (docs/error-reports.md):
+crashes, what core logs as an error, traces and what was touched (never a screenshot: it shows mail), from the Otter
+account (or the install's report id). `src/error-reports.ts` starts it before core;
+`EXPO_PUBLIC_OTTER_ERROR_REPORTS=1` makes a development build report too. `metro.config.cjs`
+gives the bundle the SDK's `@sentry/core` for `@otter/shared` as well, so core's reports reach
+its client. The release uploads the source maps and dSYMs and makes the Sentry release
+(`otter-agents-ios@<version>+<build>`, `scripts/sentry-release-ios.ts --app agents`).
+
 ## The self-test
 
 `/self-test` (open `dev.otterware.agents.dev://self-test`; in development builds and any build

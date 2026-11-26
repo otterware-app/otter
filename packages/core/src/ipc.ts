@@ -1,4 +1,4 @@
-import type { ReportTags } from "@otter/shared/error-reports";
+import { measure, type ReportTags } from "@otter/shared/error-reports";
 
 import { SignInCancelledError, SignInTimedOutError } from "./google.ts";
 import { logger } from "./logger.ts";
@@ -34,7 +34,7 @@ export async function callHandler(
   try {
     const handler = handlers.get(channel);
     if (!handler) throw new Error(`No handler for ${channel}.`);
-    return { result: await handler(params) };
+    return { result: await measure(channel, "ipc.handler", () => handler(params)) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (err instanceof SignInTimedOutError || needsSignIn(err))

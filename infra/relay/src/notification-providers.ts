@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/cloudflare";
 import { connect } from "cloudflare:sockets";
 import { connectImap, type ImapClient } from "@otter/core/imap";
 import type { MailProviderKind } from "@otter/contracts/mail";
@@ -9,6 +10,7 @@ import {
   NotificationFailure,
   type Connection,
 } from "./notification-connections.ts";
+import { log } from "./log.ts";
 import * as outlook from "./outlook.ts";
 import type { Env } from "./worker.ts";
 
@@ -72,6 +74,33 @@ async function json(url: string, token: string, options: RequestInit = {}): Prom
 }
 class MissingResource extends Error {}
 
+/** Gmail's watch or Graph's subscription, made again before it lapses; a lapsed one means no push. */
+async function renewWatch(row: Connection, cursor: MailCursor, renew: () => Promise<void>) {
+  const fields = { provider: row.provider, userId: row.user_id, email: row.email };
+  try {
+    await Sentry.startSpan(
+      { name: "watch.renew", op: "watch.renew", attributes: { provider: row.provider } },
+      renew,
+    );
+    log("watch.renewed", { ...fields, until: cursor.watchedUntil });
+  } catch (error) {
+    const failure = error instanceof NotificationFailure ? error : undefined;
+    log(
+      "watch.failed",
+      { ...fields, reason: failure?.reason ?? "unexpected", detail: failure?.detail },
+      "warn",
+    );
+    // Revoked or missing consent is the user's to fix; the app asks them to reauthorize.
+    if (!failure?.reauthorize)
+      Sentry.captureException(error, {
+        tags: { provider: row.provider, reason: failure?.reason ?? "unexpected" },
+        extra: { detail: failure?.detail },
+        user: { id: row.user_id, email: row.email },
+      });
+    throw error;
+  }
+}
+
 export async function gmailCheck(
   env: Env,
   row: Connection,
@@ -85,14 +114,16 @@ export async function gmailCheck(
   if (!cursor.historyId)
     cursor.historyId = String((await get("/profile?fields=historyId")).historyId);
   if ((cursor.watchedUntil ?? 0) < Date.now() + 86_400_000) {
-    const watch = await json(root + "/watch", token, {
-      method: "POST",
-      body: JSON.stringify({
-        topicName: env.NOTIFICATION_GOOGLE_PUSH_TOPIC || env.PUSH_TOPIC,
-      }),
+    await renewWatch(row, cursor, async () => {
+      const watch = await json(root + "/watch", token, {
+        method: "POST",
+        body: JSON.stringify({
+          topicName: env.NOTIFICATION_GOOGLE_PUSH_TOPIC || env.PUSH_TOPIC,
+        }),
+      });
+      cursor.watchedUntil = Number(watch.expiration);
+      // watch.historyId is an ending marker, never the start of the history walk.
     });
-    cursor.watchedUntil = Number(watch.expiration);
-    // watch.historyId is an ending marker, never the start of the history walk.
   }
   if (!previous?.historyId) return { cursor, messages: [] };
   const ids = new Set<string>();
@@ -169,31 +200,33 @@ export async function outlookCheck(
       ? { ...previous }
       : { provider: "outlook", since: new Date().toISOString(), seen: [] };
   if ((cursor.watchedUntil ?? 0) < Date.now() + 86_400_000) {
-    const expirationDateTime = new Date(Date.now() + 70 * 3_600_000).toISOString();
-    let subscription: Json | undefined;
-    if (cursor.subscriptionId) {
-      try {
-        subscription = await json(
-          root + `/subscriptions/${encodeURIComponent(cursor.subscriptionId)}`,
-          token,
-          { method: "PATCH", body: JSON.stringify({ expirationDateTime }) },
-        );
-      } catch (error) {
-        if (!(error instanceof MissingResource)) throw error;
+    await renewWatch(row, cursor, async () => {
+      const expirationDateTime = new Date(Date.now() + 70 * 3_600_000).toISOString();
+      let subscription: Json | undefined;
+      if (cursor.subscriptionId) {
+        try {
+          subscription = await json(
+            root + `/subscriptions/${encodeURIComponent(cursor.subscriptionId)}`,
+            token,
+            { method: "PATCH", body: JSON.stringify({ expirationDateTime }) },
+          );
+        } catch (error) {
+          if (!(error instanceof MissingResource)) throw error;
+        }
       }
-    }
-    subscription ??= await json(root + "/subscriptions", token, {
-      method: "POST",
-      body: JSON.stringify({
-        changeType: "created",
-        resource: "me/messages",
-        notificationUrl: outlook.notificationUrl(env, row.email),
-        clientState: await outlook.clientState(env, row.email),
-        expirationDateTime,
-      }),
+      subscription ??= await json(root + "/subscriptions", token, {
+        method: "POST",
+        body: JSON.stringify({
+          changeType: "created",
+          resource: "me/messages",
+          notificationUrl: outlook.notificationUrl(env, row.email),
+          clientState: await outlook.clientState(env, row.email),
+          expirationDateTime,
+        }),
+      });
+      cursor.subscriptionId = String(subscription.id);
+      cursor.watchedUntil = Date.parse(expirationDateTime);
     });
-    cursor.subscriptionId = String(subscription.id);
-    cursor.watchedUntil = Date.parse(expirationDateTime);
   }
   if (!previous?.since) return { cursor, messages: [] };
   const folders = await Promise.all(

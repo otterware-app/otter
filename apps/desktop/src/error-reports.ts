@@ -9,12 +9,13 @@ import {
   reportEnvironment,
   reportLog,
   SENTRY_DSN,
+  type ReportUser,
 } from "@otter/shared/error-reports";
 
 import { reportLogsTo } from "./logger.ts";
 
-/** Native crash dumps hold memory, local variables hold values: either could be mail. */
-const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console", "Screenshots"]);
+/** Native crash dumps and local variables can hold sign-in tokens; the console repeats our log lines. */
+const LEFT_OUT = new Set(["SentryMinidump", "LocalVariables", "Console"]);
 
 const gate = new ConsentGate();
 
@@ -25,7 +26,7 @@ export function reportedByBackend(serves: (channel: string) => boolean): void {
   servedByBackend = serves;
 }
 
-const backendFailure = (event: Sentry.ErrorEvent): boolean => {
+const backendFailure = (event: Sentry.Event): boolean => {
   const value = event.exception?.values?.[0]?.value ?? "";
   const channel = /^Error invoking remote method '([^']+)'/.exec(value)?.[1];
   return channel !== undefined && servedByBackend(channel);
@@ -48,6 +49,7 @@ export function startErrorReports(): void {
     // Avoid injecting Sentry into browser tab sessions.
     ipcMode: Sentry.IPCMode.Classic,
     getSessions: () => [],
+    // A screenshot shows mail; Google's Limited Use rules keep people from reading that.
     attachScreenshot: false,
     integrations: (defaults) => defaults.filter((integration) => !LEFT_OUT.has(integration.name)),
   });
@@ -67,10 +69,13 @@ function savedChoice(): boolean {
   }
 }
 
-export function setErrorReportsAllowed(enabled: boolean): void {
-  gate.set(enabled);
-}
-
-export function setReportId(reportId: string): void {
-  if (sendsErrorReports) Sentry.setUser({ id: reportId });
+export function followErrorReportsConfig(config: {
+  enabled: boolean;
+  reportId: string;
+  user: ReportUser;
+}): void {
+  if (!sendsErrorReports) return;
+  Sentry.setUser(config.user);
+  Sentry.setContext("install", { reportId: config.reportId });
+  gate.set(config.enabled);
 }

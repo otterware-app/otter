@@ -26,6 +26,7 @@
     "@otter/mobile": "workspace:*",
     "@otter/shared": "workspace:*",
     "@otter/ui-native": "workspace:*",
+    "@sentry/react-native": "8.28.1",
     "@shopify/flash-list": "2.3.2",
     "@tanstack/react-query": "catalog:",
     "expo": "catalog:",

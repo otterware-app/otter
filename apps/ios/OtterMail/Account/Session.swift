@@ -11,7 +11,7 @@ final class Session {
         case signedIn(Relay.User)
     }
 
-    private(set) var state: State
+    private(set) var state: State { didSet { identify() } }
     private(set) var store: MailStore
     private(set) var busy: String?
     private(set) var notificationConnections: [String: Relay.NotificationConnection] = [:]
@@ -60,10 +60,15 @@ final class Session {
         relay.onSignedOut = { [weak self] in self?.endSession() }
         preferences.onChange = { [weak self] section in self?.preferenceChanged(section) }
         if case .signedIn = state { startLive() } else { PushState.configure(nil) }
+        identify()
     }
 
     var user: Relay.User? {
         if case .signedIn(let user) = state { user } else { nil }
+    }
+
+    private func identify() {
+        ErrorReports.identify(id: user?.id, email: user?.email, name: user?.name)
     }
 
     func tryDemo() {

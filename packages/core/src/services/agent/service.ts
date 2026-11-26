@@ -13,6 +13,7 @@
  */
 
 import { isMailboxPicture } from "@otter/contracts/relay";
+import { measure } from "@otter/shared/error-reports";
 import type {
   AgentScheduledTasks,
   ChannelTarget,
@@ -49,6 +50,7 @@ import {
   type BrowserViewRequest,
   type ChatSessionMessage,
   type CheckedStatus,
+  type Emit,
   type ForkPoint,
   type ProviderKind,
   type ProviderSettings,
@@ -207,9 +209,11 @@ function check(id: AgentId): Promise<void> {
   const inFlight = checking.get(id);
   if (inFlight) return inFlight;
   const generation = generations.get(id) ?? 0;
+  let kind = "unknown";
   const run = (async () => {
     if (!(await hasAgent(id))) return;
     const { provider, settings, entry } = await agentOf(id);
+    kind = entry.kind;
     if (!settings.enabled) return;
     const result = await provider.checkStatus(settings);
     if (generation !== (generations.get(id) ?? 0)) return;
@@ -220,12 +224,14 @@ function check(id: AgentId): Promise<void> {
       status: result.status,
       version: result.version,
     });
+    if (result.status === "error" && result.installed && result.auth.status !== "unauthenticated")
+      logger.failure("agent", "An agent's status is an error", new Error(result.message), {
+        agent: kind,
+        phase: "connect",
+      });
   })()
     .catch((error: unknown) =>
-      logger.info("agent", "provider check failed", {
-        id,
-        error: String(error),
-      }),
+      logger.failure("agent", "An agent's check failed", error, { agent: kind, phase: "connect" }),
     )
     .finally(() => {
       checking.delete(id);
@@ -452,6 +458,72 @@ function emit(event: ChatEvent): void {
   broadcast("agent:chatEvent", event);
 }
 
+/** How a turn ends that's the user's doing, or theirs to fix in Settings: not a failure of ours. */
+const USERS_TO_SETTLE = new Set([
+  "cancelled",
+  "provider_disabled",
+  "not_configured",
+  "not_installed",
+  "unauthorized",
+  "pairing_required",
+  "origin_not_allowed",
+]);
+const OFFLINE = new Set(["unreachable", "detached"]);
+
+function reportTurnError(kind: string, code: string): void {
+  if (USERS_TO_SETTLE.has(code)) return logger.info("agent", "turn ended", { kind, code });
+  const message = OFFLINE.has(code)
+    ? "Couldn't connect to an agent for a turn"
+    : code === "timeout"
+      ? "An agent's turn timed out"
+      : "An agent's turn failed";
+  logger.failure("agent", message, new Error(code), { agent: kind, phase: "turn" });
+}
+
+/**
+ * Runs a turn as a span that lasts until it's done, reporting how it failed. A resume of a turn
+ * already followed settles without a done or an error, so it ends the span when it settles.
+ */
+function runTurn(
+  kind: string,
+  requestId: string,
+  run: (emit: Emit) => Promise<void>,
+  crashed: string,
+  endsWhenSettled = false,
+): void {
+  void measure(
+    `${kind} turn`,
+    "agent.turn",
+    () =>
+      new Promise<void>((end) => {
+        let open = true;
+        const close = () => {
+          open = false;
+          end();
+        };
+        run((event) => {
+          emit(event);
+          if (!open || event.requestId !== requestId) return;
+          if (event.type === "error") reportTurnError(kind, event.message);
+          if (event.type === "done" || event.type === "error") close();
+        }).then(
+          () => {
+            if (endsWhenSettled && open) close();
+          },
+          (error: unknown) => {
+            logger.failure("agent", "An agent's turn crashed", error, {
+              agent: kind,
+              phase: "turn",
+            });
+            emit({ requestId, type: "error", message: crashed });
+            close();
+          },
+        );
+      }),
+    { agent: kind },
+  );
+}
+
 export async function sendTurn(id: AgentId, turn: SendTurnInput): Promise<void> {
   const { provider, settings, entry } = await agentOf(id);
   logger.info("agent", "send", {
@@ -470,28 +542,20 @@ export async function sendTurn(id: AgentId, turn: SendTurnInput): Promise<void> 
     });
     return;
   }
-  void provider.sendTurn(turn, settings, emit).catch((error: unknown) => {
-    logger.info("agent", "turn crashed", {
-      kind: entry.kind,
-      id,
-      error: String(error),
-    });
-    emit({
-      requestId: turn.requestId,
-      type: "error",
-      message: "unreachable",
-    });
-  });
+  runTurn(
+    entry.kind,
+    turn.requestId,
+    (send) => provider.sendTurn(turn, settings, send),
+    "unreachable",
+  );
 }
 
 export async function resumeTurn(id: AgentId, turn: ResumeTurnInput): Promise<boolean> {
-  const { provider, settings } = await agentOf(id);
-  if (!provider.resume || !settings.enabled) return false;
+  const { provider, settings, entry } = await agentOf(id);
+  const resume = provider.resume?.bind(provider);
+  if (!resume || !settings.enabled) return false;
   logger.info("agent", "resume", { id, requestId: turn.requestId });
-  void provider.resume(turn, settings, emit).catch((error: unknown) => {
-    logger.info("agent", "resume crashed", { id, error: String(error) });
-    emit({ requestId: turn.requestId, type: "error", message: "detached" });
-  });
+  runTurn(entry.kind, turn.requestId, (send) => resume(turn, settings, send), "detached", true);
   return true;
 }
 
@@ -821,7 +885,7 @@ export async function readFile(id: AgentId, sessionId: string, href: string) {
 async function scheduler(id: AgentId) {
   const { provider, settings, entry } = await agentOf(id);
   if (!provider.schedules) throw new Error(`${entry.name} doesn't run scheduled tasks.`);
-  return { schedules: provider.schedules, settings };
+  return { schedules: provider.schedules, settings, kind: entry.kind };
 }
 
 /** Every enabled agent's scheduled tasks; one that can't be reached says so without hiding the rest. */
@@ -842,6 +906,10 @@ export async function listScheduledTasks(): Promise<AgentScheduledTasks[]> {
           }
         );
       } catch (error) {
+        logger.failure("agent", "Couldn't list an agent's scheduled tasks", error, {
+          agent: entry.kind,
+          phase: "schedule",
+        });
         return {
           provider: entry.id,
           tasks: [],
@@ -876,8 +944,10 @@ export async function setScheduledTaskEnabled(agent: AgentId, id: string, enable
 }
 
 export async function runScheduledTask(agent: AgentId, id: string): Promise<void> {
-  const { schedules, settings } = await scheduler(agent);
-  await schedules.runNow(settings, id);
+  const { schedules, settings, kind } = await scheduler(agent);
+  await measure(`${kind} scheduled run`, "agent.scheduled", () => schedules.runNow(settings, id), {
+    agent: kind,
+  });
 }
 
 export async function deleteScheduledTask(agent: AgentId, id: string): Promise<void> {

@@ -98,9 +98,10 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   shows everything unless its "Their mail in … too" switch is off (`mail:alias-mail-apart`):
   then its lists and counts leave out the mail of its alias mailboxes that are turned on
   (`MailStore.isRest`), while the app's badge still counts it.
-- `Reports/`: error reports to Sentry (`otter-mail-ios`), scrubbed by the shared rules
-  (`docs/error-reports.md`): crashes and the failures of sync, sign-in, the relay and sending, with a
-  random report id; off in Settings › Support. Release builds report; Debug builds only with
+- `Reports/`: error reports to Sentry (`otter-mail-ios`), with tokens scrubbed by the shared
+  rules (`docs/error-reports.md`): crashes and the failures of sync, sign-in, the relay and
+  sending, with breadcrumbs and traces (never a screenshot: it shows mail), from the Otter account
+  (or the install's random report id when signed out); off in Settings › Support. Release builds report; Debug builds only with
   `OTTER_MAIL_ERROR_REPORTS=1` in the launch environment.
 - `Home/`, `Reader/`, `Compose/`, `Settings/`: the screens.
 

@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { AppSettings } from "@otter/core";
+import type { AppSettings, ErrorReportsConfig } from "@otter/core";
 
 import {
   appInfoEnv,
@@ -24,7 +24,7 @@ import {
   type MainRequests,
   type ToBackend,
 } from "./backend-protocol.ts";
-import { reportedByBackend, setErrorReportsAllowed, sendsErrorReports } from "./error-reports.ts";
+import { followErrorReportsConfig, reportedByBackend, sendsErrorReports } from "./error-reports.ts";
 import { broadcast } from "./ipc.ts";
 import { logger, writeLog } from "./logger.ts";
 import { hostOS } from "./os/index.ts";
@@ -303,6 +303,8 @@ function postAsAgent(
 function carryOut(effect: MainEffect): void {
   switch (effect.kind) {
     case "broadcast":
+      if (effect.channel === "errorReports:changed")
+        followErrorReportsConfig(effect.params as ErrorReportsConfig);
       broadcast(effect.channel, effect.params);
       return;
     case "notify": {
@@ -411,9 +413,6 @@ function applySettings(settings: AppSettings, patch: Partial<AppSettings>): void
   }
   if (patch.launchAtLogin !== undefined) {
     hostOS.setLaunchAtLogin(settings.launchAtLogin);
-  }
-  if (patch.errorReports !== undefined) {
-    setErrorReportsAllowed(settings.errorReports);
   }
 }
 

@@ -44,7 +44,7 @@
     },
     {
       "name": "Sentry",
-      "bundles": ["ios"],
+      "bundles": ["agents-mobile", "ios"],
       "license": "MIT",
       "sourceUrl": "https://github.com/getsentry/sentry-cocoa",
       "generatedNotices": [
@@ -265,6 +265,14 @@
       "generatedNotice": {
         "licenseId": "MIT",
         "copyrights": ["Copyright (c) Vladimir Krivosheev"]
+      }
+    },
+    {
+      "name": "metro-runtime",
+      "sourceUrl": "https://github.com/facebook/metro",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Meta Platforms, Inc. and affiliates."]
       }
     },
     {
