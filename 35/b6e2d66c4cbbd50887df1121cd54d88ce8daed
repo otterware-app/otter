@@ -1,0 +1,29 @@
+packages/core/src/services/mail-store.ts
+  s_d443cfafdeb497::t_860b2575e9f8ca 400
+packages/core/src/handlers/draft-sessions.ts
+  s_d443cfafdeb497::t_660679fee4de07 100
+docs/expo-migration.md
+  s_d443cfafdeb497::t_2fe5296a7899c4 489-490
+packages/core/src/providers/gmail/sync.ts
+  s_d443cfafdeb497::t_10e7b851b0ac63 340-353,513-518,520-524
+packages/core/src/providers/outlook/sync.ts
+  s_d443cfafdeb497::t_06492311526f8b 113,120,203
+  s_d443cfafdeb497::t_95c04bf1ae0e5c 187
+  s_d443cfafdeb497::t_6bea80440d4f83 188-191,205-207,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "35b6e2d66c4cbbd50887df1121cd54d88ce8daed",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
