@@ -1,0 +1,42 @@
+apps/mail-mobile/README.md
+  s_d443cfafdeb497::t_e4539d568e5d71 26,52-54
+  s_d443cfafdeb497::t_770a158822f691 36-38,40-44
+  s_d443cfafdeb497::t_03c6ab8160dcb7 20-25,27-35,39,45-51,55-61
+scripts/bench-mobile-mail.ts
+  s_d443cfafdeb497::t_e239d83dbee7ff 42-47,94-121,171-174,176
+  s_d443cfafdeb497::t_36dea34446b3b9 87,135
+  s_d443cfafdeb497::t_fee1fba8e98224 168-169
+  s_d443cfafdeb497::t_5c2af46f9db503 1-41,48-86,88-93,122-134,136-167,170,175,177-188
+docs/development.md
+  s_d443cfafdeb497::t_fee1fba8e98224 13-24,26-31
+  s_d443cfafdeb497::t_03c6ab8160dcb7 25,342-347
+  s_d443cfafdeb497::t_cad17cb1099003 348
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_d443cfafdeb497::t_1621a04d213da9 19,125-128
+  s_d443cfafdeb497::t_6196a885066a5a 17,23,124,392,498-502
+apps/mail-mobile/src/core.ts
+  s_d443cfafdeb497::t_7bda1d95d79c18 11-14
+docs/expo-migration.md
+  s_d443cfafdeb497::t_a641421756f8ce 76,78-83
+  s_d443cfafdeb497::t_174e5421f3ba24 77
+package.json
+  s_d443cfafdeb497::t_976bdfcbd07ba7 20
+apps/mail-mobile/src/mail/benchmark-status.tsx
+  s_d443cfafdeb497::t_0624e78d6f4e16 3,11-38,42,46,48,51,55-61,65-84,101-103,105-107,116-118,120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4b89d4a421fbd03536d4b07f55d0659dba62cb6",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
