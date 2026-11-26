@@ -1,0 +1,20 @@
+apps/web/src/main/mail/message-list.tsx
+  s_d15721c8d5b6e0::t_679f0897064e11 320-350,356-357,359,361-363,379,390,408,420,434-475,508-512,678-680,682-690,692-693,698,707-844
+  s_d15721c8d5b6e0::t_55cb4ed1875eb7 845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f70b6b4bfe3cba825fa66d4a09bb913bd3756165",
+  "prompts": {},
+  "sessions": {
+    "s_d15721c8d5b6e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4aca1645-0eb1-4b4e-9fe3-296c87a1a536",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
