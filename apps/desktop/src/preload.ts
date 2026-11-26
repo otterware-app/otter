@@ -20,11 +20,14 @@ function subscribe(channel: string, listener: (params: unknown) => void): () => 
   };
 }
 
+// The window opens while the backend starts; its channels exist once it's ready.
+const backendReady = ipcRenderer.invoke("backend:ready");
+
 const bridge: DesktopBridge = {
   platform: process.platform,
   features: featuresFor(process.platform),
   invoke: <T>(channel: string, params?: unknown) =>
-    ipcRenderer.invoke(channel, params) as Promise<T>,
+    backendReady.then(() => ipcRenderer.invoke(channel, params)) as Promise<T>,
   on: subscribe,
   openExternal: async (url: string) => {
     const opened = (await ipcRenderer.invoke("shell:openExternal", url)) as boolean;

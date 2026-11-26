@@ -88,6 +88,9 @@ export function startBackend(): Promise<void> {
   return ready;
 }
 
+/** Settles once the backend serves its channels: the preload holds the page's invokes until then. */
+ipcMain.handle("backend:ready", () => ready);
+
 export function stopBackend(): void {
   stopping = true;
   send({ type: "shutdown" });

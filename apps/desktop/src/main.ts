@@ -325,12 +325,18 @@ void app.whenReady().then(async () => {
   });
 
   setupBrowser();
-  await startBackend();
+  // The window loads while the backend starts: the preload holds its invokes until it's ready.
+  const backendStarted = startBackend();
   registerHandlers();
   setupApplicationMenu();
   initUpdates();
   allowWindows();
+  hostOS.showInTray(() => void focusMainWindow());
+  createMainWindow(app.isPackaged && hostOS.launchedAtLogin()).catch((error: unknown) =>
+    logger.error("main", "Failed to create main window", error),
+  );
 
+  await backendStarted;
   const startupSettings = (await invokeBackend("settings:get")) as AppSettings;
   if (app.isPackaged) {
     hostOS.setLaunchAtLogin(startupSettings.launchAtLogin);
@@ -341,11 +347,4 @@ void app.whenReady().then(async () => {
     setReportId(reports.reportId);
     setErrorReportsAllowed(reports.enabled);
   });
-
-  hostOS.showInTray(() => void focusMainWindow());
-  try {
-    await createMainWindow(app.isPackaged && hostOS.launchedAtLogin());
-  } catch (error) {
-    logger.error("main", "Failed to create main window", error);
-  }
 });
