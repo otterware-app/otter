@@ -1,0 +1,373 @@
+packages/client/src/agents/chat-store.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 390
+packages/core/src/services/sync-health.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-53
+packages/mobile/src/platform.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 8,62,70,76-80
+apps/desktop/src/backend-host.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9-10,40
+.github/workflows/release.yml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 596-602,620-622,632,635-639,642-726,736
+apps/web/src/main/agent/chat-workspace.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 16,18,23,498-501,527
+infra/relay/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9-10
+packages/core/src/services/calendar-sync.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 2,23,147-152,331,340,348-349,352-357,403-405,407-409
+scripts/release-plan.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 67-68
+apps/desktop/src/platform.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 130-131
+apps/agents-mobile/metro.config.cjs
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-18
+apps/web/src/main/keybindings/commands.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 46,50,150,154
+apps/web/src/main/settings/settings-search.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 499-505,522-528
+packages/browser/src/main/index.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-10
+packages/browser/src/main/native-messaging-ipc.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-200
+packages/browser/src/ui/host.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-49
+packages/client/src/mail/hooks.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 8-9,164-168,353-357,365,372-373,376-380
+  s_d443cfafdeb497::t_3f4cb6149153cd 381
+scripts/build-desktop-artifact.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 197-200,269-275
+extensions/openclaw/core/openclaw-connection.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 480-496
+docs/release.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 212-225
+apps/web/src/main/settings/appearance-pane.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 4
+packages/browser/src/main/extensions.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-63
+packages/core/src/services/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-3,6-7,9-14,32-47
+third-party-licenses.config.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 45-46,48-56,270-275,277
+  s_d443cfafdeb497::t_0b0e1bbf100ef6 47
+  s_d443cfafdeb497::t_608f849fe77420 276
+infra/relay/src/error-reports.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-35
+packages/browser/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-43
+packages/browser/src/main/os/mac.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-46
+infra/relay/src/user-hub.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 21,214-220
+packages/browser/src/main/os/linux.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-49
+packages/browser/src/main/downloads.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-116
+apps/web/src/main/extensions/kit.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9
+packages/core/src/handlers/agent.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 14,151-152,169-170
+apps/web/src/main/home-view.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 32-39,145,160,650-652,705-710,765-769,773,852-881,1162-1166,1659-1672,1806-1810,1812-1829,1831-1840,1843-1845,1847-1850,1853-1865,1867-1877,1879,1881-1976,1980-1983,1986,1988-2024,2031,2035,2038-2039,2046,2053-2055
+apps/web/src/main/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 4,21,32,34-35,41-50
+packages/browser/src/preload/native-messaging.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-157
+apps/web/src/main/mail/message-list.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 320-350,356-357,359,361-363,379,390,408,420,434-475,508-512,678-680,682-690,692-693,698,707-844
+  s_d443cfafdeb497::t_399d34282e6f8c 845
+apps/web/src/main/browser/browser-settings.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 10-12,14-15,32-34,58-73,76
+  s_d443cfafdeb497::t_28c2847716f71a 77
+extensions/openclaw/gateway/index.js
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 22,187-200,202-230,268
+site/wrangler.jsonc
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 20-21,29
+packages/browser/src/main/browser.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-319
+scripts/release.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 102-110,116,119-133
+infra/relay/src/apns.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1,11,185-190,192,194,209-249,252-255
+apps/desktop/src/main.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11,16-17,328-329,334-337,339,345-347
+packages/browser/src/main/host.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-35
+packages/browser/src/main/browser-import.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-87
+infra/relay/src/log.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-8
+.github/workflows/relay-smoke.yml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11,45-67
+packages/core/src/handlers/support.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 4,11
+package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 19
+packages/browser/src/preload/extensions.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-440
+packages/browser/src/ui/store.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-54
+packages/browser/src/ui/store.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-368
+packages/core/src/services/test/agent-changes.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 175-189
+packages/browser/src/ui/permission-prompt.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-80
+scripts/bench-desktop.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-511
+docs/expo-migration.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 79-85
+apps/agents-mobile/src/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-61
+apps/desktop/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 17
+extensions/openclaw/gateway/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3,15
+docs/development.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 24,331-339
+  s_d443cfafdeb497::t_f349fb0334b407 340
+packages/core/src/services/agent/service.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 16,53,212,216,227-231,234,461-526,545-550,554-556,558,888,909-912,947-950
+packages/core/src/services/agent/turns.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-76
+packages/core/src/services/agent/instructions.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 7,32-37
+packages/browser/src/main/browser-import.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-253
+packages/core/src/services/mail-sync.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3-4,15,254,274-280,315,329,333,366-377,402
+packages/shared/src/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 6,11-12,23-25,30,33-40,50-51,59-68,70,82-87,97,100,110,116,133-141,164,166,170-177
+  s_d443cfafdeb497::t_d85ecaae2c9021 178-179
+scripts/sentry-release-ios.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9-23,26,39-46,48-50,52,57,83,93-95,97-99,104,111
+extensions/openclaw/core/openclaw.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 12-16,33,131-134,805,809-816,1090,1702-1706,1738-1742,1805-1932,2250,2262,2313-2314,2338-2340,2589-2593
+packages/browser/tsconfig.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-9
+packages/browser/src/ui/import-section.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-131
+packages/client/src/agents/chat-store.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 720,1398,1531
+apps/agents-mobile/src/core.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 8-9,19-20,36,38-39
+packages/core/src/extension-kit.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 58-65
+packages/core/src/services/agent/tools/browser.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-167
+packages/browser/src/ui/browser-view.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-580
+packages/core/src/services/agent/turn-chats.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-11
+packages/browser/src/main/agent.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-599
+site/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 12-15
+.github/workflows/ci.yml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 191-195,198-233
+apps/desktop/vite.config.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 55-57,73
+apps/web/src/main/mail/command-palette.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 44
+apps/agents-mobile/src/settings/licenses.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 226-288,450-456,583-589,604-610,716-722,912-918
+apps/web/src/main/mail/conversation-summary.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9
+apps/web/src/main/router.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 23-24,118-134,142,158
+infra/relay/src/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9
+packages/browser/src/ui/extension-toolbar.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-226
+packages/browser/src/ui/extensions-section.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-269
+packages/core/src/logger.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11,21,23-24
+packages/core/src/services/test/mail-store-threads.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 152-182
+apps/desktop/src/windows/window-paths.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 34-35
+scripts/agents-server/compose.yaml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3,14
+packages/core/src/types.ts
+  s_d443cfafdeb497::t_fc8c18933965bf 75-79
+packages/mobile/src/start.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 44-45,63
+packages/client/src/preferences.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 37
+packages/client/src/agents/api.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 224-225,232
+infra/relay/scripts/local-config.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 9
+packages/browser/src/main/native-messaging.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-204
+apps/web/src/main/agent/chat-markdown.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 10
+extensions/openclaw/core/openclaw-owner.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 88-89
+extensions/openclaw/gateway/openclaw.plugin.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 5-48,50-54,61-69,73-79
+packages/browser/src/main/browser.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-99
+packages/browser/src/main/native-messaging-ipc.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-167
+packages/browser/src/main/permissions.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-153
+packages/core/src/services/agent/scheduled.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 46-47,84-89
+apps/agents-mobile/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3,29,50
+apps/web/src/styles.css
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 5
+apps/web/src/main/app.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11
+docs/features.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 434,466-467,479-484,681-703,707,709-710,712-730
+extensions/openclaw/core/openclaw-resume.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 331-366
+infra/relay/src/worker.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 51,98,133-134,311,765-768,828-853,895,897-900,938,940-944,992,994
+apps/web/src/main/agent/agent-browser.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 19
+.github/workflows/checks.yml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 37
+apps/agents-mobile/app.config.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11-17,27,29-37,78-86
+apps/desktop/src/services/agent/mcp-server.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 54,60-65
+apps/desktop/src/handlers/index.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 12
+apps/web/src/main/browser/tab-switcher.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-94
+apps/web/src/main/settings/settings-nav.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 33
+.github/workflows/relay-sourcemaps.yml
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-49
+apps/agents-mobile/README.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 55-65
+docs/runbook.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 124-126
+docs/error-reports.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3-7,13-17,20-38,55,59-63,65-72,81-82,87,92-93
+  s_d443cfafdeb497::t_8e20de8830f1cc 64
+packages/browser/src/main/handlers.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-89
+AGENTS.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 38-39,51-52,88-97
+packages/browser/src/main/native-messaging.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-135
+packages/browser/src/main/thumbnails.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-41
+apps/web/src/main/updates.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 3
+packages/browser/src/ui/bridge.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-5
+apps/web/src/main/browser/browser-host.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-28
+apps/agents-mobile/src/app/_layout.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 6,27-30
+infra/relay/README.md
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 131-134
+packages/browser/src/main/history.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-108
+packages/browser/src/ui/page-tools.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-407
+packages/core/src/platform.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 175-176
+apps/web/src/main/settings/open-source-licenses.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 17
+packages/browser/src/preload/native-messaging.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-179
+packages/core/src/services/agent-sync.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 251,448-450,494-496
+extensions/openclaw/gateway/tools.test.js
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-142
+scripts/agents-runtime.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-16
+scripts/agents-runtime.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-88
+packages/core/src/services/test/outlook-sync.test.ts
+  s_d443cfafdeb497::t_fc8c18933965bf 42,141,332-334,968-980
+  s_d443cfafdeb497::t_af1ec575189106 981-982
+packages/browser/src/main/permissions.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-26
+scripts/release-ios.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 30
+  s_d443cfafdeb497::t_4eac397e2d1932 91-94
+apps/desktop/src/browser.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-31
+apps/web/src/main/mail/unsubscribe-link.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 7
+apps/web/src/main/settings/settings-page.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 381
+extensions/openclaw/core/openclaw-tools.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-9
+packages/core/src/services/agent/tools/index.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 13,22-28,32-34,39,42,46-50,110-122,136,152,154-155,166-168
+infra/relay/src/notification-providers.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1,13,77-103,117-125,203-215,217-228
+.gitignore
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 11
+packages/core/src/services/mail-store.ts
+  s_d443cfafdeb497::t_661fa847d41e54 393-397,420
+  s_d443cfafdeb497::t_fc8c18933965bf 129-133
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 142-185,723-724,726-730,732,736-737,742-745,755,761,769,771,775-839,912-913,915-925,930-934,936,939,1080-1091,1506,1511-1520
+packages/core/src/services/sync-health.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-97
+apps/desktop/src/error-reports.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 12,17-18,29,52,72-80
+packages/browser/src/main/os/index.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-14
+apps/web/package.json
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 19
+apps/desktop/src/backend-host.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1,18,27,91-93,215-218,306-307
+extensions/openclaw/gateway/tools.js
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-239
+packages/core/src/providers/outlook/messages.ts
+  s_d443cfafdeb497::t_fc8c18933965bf 35,98,189
+infra/relay/src/notification-mailbox.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1,4,79-85,123-144
+apps/agents-mobile/fingerprint.config.cjs
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-27
+apps/web/src/main/calendar/time-grid.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 31,138,143-154,162,165-166,170-185,189
+packages/browser/src/main/extensions.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-1434
+site/src/worker.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-4,8,11-21,57,86
+apps/desktop/src/backend-protocol.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 13
+apps/web/src/main/client-host.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 14-15,37
+packages/shared/src/error-reports.test.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 2,46-48,58,63,72,77,80,82-83,87,95,97-113,118,120-122,129,139
+packages/core/src/ipc.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1,37
+apps/web/src/main/mail/message-reader.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 140
+packages/browser/src/ui/page-host.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-147
+apps/desktop/src/preload.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 23-25,30
+apps/web/src/main/browser/browser-panel.tsx
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 1-12,20-36,40-330,336-338,343-345,349,353-357,359-367,369-370,372,375-376,379-381,384-408,411-435,437-462,477-485,494-496
+apps/desktop/src/windows/main-window.ts
+  s_d443cfafdeb497::t_ba8e0c2f94ffaf 5,98,133-136,185
+pnpm-lock.yaml
+  s_d443cfafdeb497::t_9f8332f3f4acfb 153-155,216-218,268-270,468-470,1066-1114,1359-1365,4142-4145,4150-4153,4158-4169,4185-4189,4195-4200,4207-4212,4219-4224,4231-4236,4243-4248,4255-4260,4267-4272,4279-4283,4304-4307,4312-4315,4328-4344,4359-4414,4425-4428,4433-4436,5267-5270,5333-5335,6268-6270,6444-6446,6476-6487,6582-6585,6798-6801,7161-7164,7619-7627,7766-7769,7784-7787,8609-8611,8899-8901,8908-8910,11750-11754,11761-11769,11779-11791,11804-11806,11810-11812,11816-11818,11822-11824,11828-11830,11834-11836,11840-11842,11846-11848,11852-11871,11901-11915,11918-11921,11938-11948,11973-12008,12016-12020,12026-12030,12791-12796,12884-12885,13830-13831,14014-14015,14044-14068,14214-14218,14479-14485,14760-14763,15613-15616,15860-15863,15882-15883,16843-16844,17058-17059,17061,17071,17127-17142,17202,17205,17222,17255-17256,17261-17265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e45750fa25ac8071a89419e47464d28717b6cd55",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
