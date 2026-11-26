@@ -94,7 +94,7 @@ export interface Env {
   APNS_PRIVATE_KEY?: string;
   APNS_SANDBOX_TOPIC?: string;
   APNS_PRODUCTION_TOPIC?: string;
-  /** Otter Agents (apps/ios-agents): its devices hear what agents ask and send, never mail. */
+  /** Otter Agents (apps/agents-mobile): its devices hear what agents ask and send, never mail. */
   APNS_AGENTS_SANDBOX_TOPIC?: string;
   APNS_AGENTS_PRODUCTION_TOPIC?: string;
   APNS_TEST_ORIGIN?: string;
