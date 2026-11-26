@@ -566,7 +566,8 @@ function messageResource(box: Mailbox, m: Message, url: URL): object {
     const headers = wanted.length
       ? m.headers.filter((h) => wanted.includes(h.name.toLowerCase()))
       : m.headers;
-    return { ...base, payload: { mimeType: "multipart/mixed", headers } };
+    const { mimeType } = payload(m) as { mimeType: string };
+    return { ...base, payload: { mimeType, headers } };
   }
   return { ...base, payload: payload(m) };
 }

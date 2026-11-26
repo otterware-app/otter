@@ -1,14 +1,17 @@
 import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { capabilitiesOf } from "@otter/client/mail/capabilities";
-import { syncLabel } from "@otter/client/mail/hooks";
-import type { MailLabel, SyncStatus } from "@otter/client/mail/types";
+import { syncLabel, useLabels } from "@otter/client/mail/hooks";
+import { ALL_MAIL_LABEL_ID } from "@otter/client/mail/label-names";
+import type { MailLabel, MessageSummary, SyncStatus } from "@otter/client/mail/types";
 import { Glass } from "@otter/ui-native/components/glass";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Text } from "@otter/ui-native/components/text";
+import { haptics } from "@otter/ui-native/haptics";
 import { alpha, useTheme } from "@otter/ui-native/theme";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { FadeOut, withSpring } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -86,19 +89,26 @@ export function MailBar({
   const caps = capabilitiesOf(mailbox.account);
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
+  useEffect(() => {
+    if (hover !== null) haptics.tap();
+  }, [hover]);
+  const hold = (label: string) => {
+    haptics.impact();
+    onRecents(label);
+  };
   const tabs = [
     {
       title: "Inbox",
       icon: "tray.fill",
       run: () => onLabel("INBOX"),
-      onHold: () => onRecents("INBOX"),
+      onHold: () => hold("INBOX"),
       dot: unread,
     },
     {
       title: caps.stars ? "Starred" : "Flagged",
       icon: caps.stars ? "star.fill" : "flag.fill",
       run: () => onLabel("STARRED"),
-      onHold: () => onRecents("STARRED"),
+      onHold: () => hold("STARRED"),
     },
     { title: "All places", icon: "folder.fill", run: onFolders },
     { title: "Settings", icon: "gearshape.fill", run: onSettings },
@@ -162,7 +172,7 @@ export function MailBar({
           onPress={onCompose}
           accessibilityActions={[{ name: "drafts", label: "Recent drafts" }]}
           onAccessibilityAction={() => onRecents("DRAFT")}
-          onLongPress={() => onRecents("DRAFT")}
+          onLongPress={() => hold("DRAFT")}
           style={[styles.dockIcon, { backgroundColor: theme.colors.foreground }]}
         >
           <Icon name="square.and.pencil" size={16} tint={theme.colors.canvas} />
@@ -176,17 +186,17 @@ export function MailBar({
           >
             {tabs.map((tab, index) => {
               const lit = (hover ?? selected) === index;
-              const hold = "onHold" in tab ? tab.onHold : undefined;
+              const onHold = "onHold" in tab ? tab.onHold : undefined;
               return (
                 <Pressable
                   key={tab.title}
                   accessibilityRole="button"
                   accessibilityLabel={tab.title}
                   accessibilityState={{ selected: lit }}
-                  accessibilityActions={hold ? [{ name: "recent", label: "Recent" }] : undefined}
-                  onAccessibilityAction={hold}
+                  accessibilityActions={onHold ? [{ name: "recent", label: "Recent" }] : undefined}
+                  onAccessibilityAction={onHold}
                   onPress={tab.run}
-                  onLongPress={hold}
+                  onLongPress={onHold}
                   style={styles.tab}
                 >
                   <View
@@ -338,13 +348,200 @@ export function MailboxPicker({
   );
 }
 
-export function FolderPicker({
+const spring = { duration: 300, dampingRatio: 0.8 };
+
+/** Grows from the bar, as `.transition(.scale(scale: 0.6, anchor:))`. */
+function cardIn() {
+  "worklet";
+  return {
+    initialValues: { opacity: 0, transform: [{ scale: 0.6 }] },
+    animations: { opacity: withSpring(1, spring), transform: [{ scale: withSpring(1, spring) }] },
+  };
+}
+
+/** The bar's height over the safe area: the pill, and the tabs unless they're tucked away. */
+export const barHeight = (reading: boolean) => (reading ? 56 : 92);
+
+/** A card over the list, above the bar, at one end of it; tapping elsewhere closes it. */
+export function MailPopover({
+  visible,
+  reading,
+  align,
+  onClose,
+  children,
+}: {
+  visible: boolean;
+  reading: boolean;
+  align: "left" | "right";
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      {visible && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+      {visible && (
+        <Animated.View
+          accessibilityViewIsModal
+          entering={cardIn}
+          exiting={FadeOut.duration(180)}
+          style={[
+            styles.popover,
+            {
+              bottom: insets.bottom + barHeight(reading) + 20,
+              alignItems: align === "left" ? "flex-start" : "flex-end",
+              transformOrigin: `bottom ${align}`,
+            },
+          ]}
+        >
+          {children}
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+function CardRow({
+  title,
+  detail,
+  leading,
+  count,
+  dot,
+  selected,
+  indent = 0,
+  compact,
+  onPress,
+}: {
+  title: string;
+  detail?: string;
+  leading: ReactNode;
+  count?: number;
+  dot?: boolean;
+  selected?: boolean;
+  indent?: number;
+  compact?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={detail ? `${title}, ${detail}` : title}
+      accessibilityValue={count ? { text: `${count}` } : undefined}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        compact ? styles.compactRow : styles.cardRow,
+        { paddingLeft: (compact ? 10 : 12) + indent * 20 },
+        selected && { backgroundColor: alpha(theme.colors.foreground, 0.08) },
+        pressed && { opacity: 0.6 },
+      ]}
+    >
+      {leading}
+      <View style={{ flex: 1 }}>
+        <Text
+          size={compact || detail ? "md" : "lg"}
+          weight={detail && selected ? "semibold" : "regular"}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        {detail ? (
+          <Text size="xs" color="mutedForeground" numberOfLines={1}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
+      {count ? (
+        <Text size="body" weight="medium" color="mutedForeground" tabular>
+          {count}
+        </Text>
+      ) : null}
+      {dot ? <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} /> : null}
+    </Pressable>
+  );
+}
+
+function CardDivider() {
+  const theme = useTheme();
+  return <View style={[styles.cardDivider, { backgroundColor: theme.colors.border }]} />;
+}
+
+function MailboxChoice({
+  mailbox: { look, account, alias },
+  current,
+  onPick,
+}: {
+  mailbox: Mailbox;
+  current: boolean;
+  onPick: () => void;
+}) {
+  const labels = useLabels(account.id, alias);
+  return (
+    <CardRow
+      title={getAccountDisplayName(look)}
+      detail={account.signedOut ? `${look.email} · Signed out` : look.email}
+      leading={<MailboxAvatar mailbox={look} size={26} />}
+      count={labels.data?.find(({ id }) => id === "INBOX")?.unread}
+      selected={current}
+      onPress={onPick}
+    />
+  );
+}
+
+/** The mailboxes to switch between, with what's unread in each inbox; Settings' list at the end. */
+export function MailboxesCard({
+  mailboxes,
+  current,
+  onPick,
+  onManage,
+}: {
+  mailboxes: Mailbox[];
+  current: string;
+  onPick: (id: string) => void;
+  onManage: () => void;
+}) {
+  return (
+    <Glass shape={{ radius: 24 }} style={[styles.card, { width: 280 }]}>
+      {mailboxes.map((mailbox) => (
+        <MailboxChoice
+          key={mailbox.look.id}
+          mailbox={mailbox}
+          current={mailbox.look.id === current}
+          onPick={() => onPick(mailbox.look.id)}
+        />
+      ))}
+      <CardDivider />
+      <CardRow
+        compact
+        title="Mailboxes"
+        leading={<Icon name="gearshape" size={15} style={styles.cardIcon} />}
+        onPress={onManage}
+      />
+    </Glass>
+  );
+}
+
+/** Drafts count what's in them; All Mail nothing; the rest what's unread. */
+function placeCount(id: string, label: MailLabel | undefined) {
+  if (id === "DRAFT") return label?.total;
+  if (id === ALL_MAIL_LABEL_ID) return undefined;
+  return label?.unread;
+}
+
+/** Every place in the mailbox, under its picture and name. */
+export function PlacesCard({
   mailbox,
   labels,
   selected,
   status,
-  visible,
-  onClose,
   onPick,
   onSync,
 }: {
@@ -352,52 +549,100 @@ export function FolderPicker({
   labels: MailLabel[];
   selected: string;
   status: SyncStatus | null;
-  visible: boolean;
-  onClose: () => void;
   onPick: (id: string) => void;
   onSync: () => void;
 }) {
   const places = mailPlaces(mailbox.account, labels);
-  const rows = (items: typeof places.system) =>
+  const rows = (items: typeof places.system, nested = false) =>
     items.map(({ id, icon, title, label }) => (
-      <SheetRow
+      <CardRow
         key={id}
-        title={title}
-        icon={icon}
-        leading={label?.color ? <Icon name={icon} tint={label.color.backgroundColor} /> : undefined}
-        detail={label?.unread}
+        title={nested ? (title.split("/").at(-1) ?? title) : title}
+        indent={nested ? title.split("/").length - 1 : 0}
+        leading={<Icon name={icon} tint={label?.color?.backgroundColor} style={styles.placeIcon} />}
+        count={placeCount(id, label)}
         selected={id === selected}
         onPress={() => onPick(id)}
       />
     ));
   return (
-    <MailSheet title={getAccountDisplayName(mailbox.look)} visible={visible} onClose={onClose}>
-      {rows(places.system)}
-      {places.folders.length > 0 && (
-        <>
-          <Text size="sm" color="mutedForeground" style={styles.section}>
-            {places.folderTitle}
-          </Text>
-          {rows(places.folders)}
-        </>
-      )}
-      {places.categories.length > 0 && (
-        <>
-          <Text size="sm" color="mutedForeground" style={styles.section}>
-            Categories
-          </Text>
+    <Glass shape={{ radius: 28 }} style={styles.placesCard}>
+      <View style={styles.placesHeader}>
+        <MailboxAvatar mailbox={mailbox.look} size={24} />
+        <Text size="lg" weight="semibold" numberOfLines={1} accessibilityRole="header">
+          {getAccountDisplayName(mailbox.look)}
+        </Text>
+      </View>
+      <CardDivider />
+      <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
+        <View style={{ padding: 8, gap: 2 }}>
+          {rows(places.system)}
+          {places.folders.length > 0 && (
+            <Text size="body" color="mutedForeground" style={styles.section}>
+              {places.folderTitle}
+            </Text>
+          )}
+          {rows(places.folders, true)}
+          {places.categories.length > 0 && (
+            <Text size="body" color="mutedForeground" style={styles.section}>
+              Categories
+            </Text>
+          )}
           {rows(places.categories)}
-        </>
-      )}
-      {!mailbox.account.signedOut && (
-        <SheetRow
-          title="Sync now"
-          icon="arrow.clockwise"
-          detail={status ? syncLabel(status) : undefined}
-          onPress={onSync}
+          {!mailbox.account.signedOut && (
+            <>
+              <CardDivider />
+              <CardRow
+                title="Sync now"
+                detail={status ? syncLabel(status) : undefined}
+                leading={<Icon name="arrow.clockwise" style={styles.placeIcon} />}
+                onPress={onSync}
+              />
+            </>
+          )}
+        </View>
+      </ScrollView>
+    </Glass>
+  );
+}
+
+/** What's newest in Inbox, Starred or Drafts, and a new message. */
+export function RecentsCard({
+  folder,
+  messages,
+  onOpen,
+  onCompose,
+}: {
+  folder: string;
+  messages: MessageSummary[];
+  onOpen: (message: MessageSummary) => void;
+  onCompose: () => void;
+}) {
+  return (
+    <Glass shape={{ radius: 22 }} style={[styles.card, { width: 250 }]}>
+      {messages.slice(0, 5).map((message) => (
+        <CardRow
+          key={message.threadId}
+          compact
+          title={message.subject || "(No subject)"}
+          leading={
+            <Icon
+              name={folder === "DRAFT" ? "doc" : "envelope"}
+              size={13}
+              style={styles.recentIcon}
+            />
+          }
+          dot={message.threadUnread ?? message.unread}
+          onPress={() => onOpen(message)}
         />
-      )}
-    </MailSheet>
+      ))}
+      <CardRow
+        compact
+        title="New message"
+        leading={<Icon name="square.and.pencil" size={14} style={styles.recentIcon} />}
+        onPress={onCompose}
+      />
+    </Glass>
   );
 }
 
@@ -454,6 +699,37 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   sheetRows: { paddingHorizontal: 8, paddingBottom: 12 },
+  popover: { position: "absolute", left: 16, right: 16 },
+  card: { padding: 5 },
+  cardRow: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingRight: 12,
+    borderRadius: 16,
+    borderCurve: "continuous",
+  },
+  compactRow: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 10,
+  },
+  cardDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 10, marginVertical: 4 },
+  cardIcon: { width: 26 },
+  recentIcon: { width: 18 },
+  placeIcon: { width: 24 },
+  unreadDot: { width: 7, height: 7, borderRadius: 4 },
+  placesCard: { width: "100%", maxWidth: 340, maxHeight: 520, overflow: "hidden" },
+  placesHeader: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
   sheetRow: {
     minHeight: 46,
     flexDirection: "row",
@@ -462,5 +738,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 18,
   },
-  section: { marginHorizontal: 12, marginTop: 14, marginBottom: 3 },
+  section: { marginHorizontal: 12, marginTop: 12, marginBottom: 4 },
 });

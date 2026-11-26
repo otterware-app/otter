@@ -64,7 +64,7 @@ function MailStack() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="mail/[account]/[label]/index" options={{ headerShown: false }} />
         <Stack.Screen name="mail/[account]/[label]/[thread]" />
-        <Stack.Screen name="search" options={{ presentation: "modal", title: "Search" }} />
+        <Stack.Screen name="search" options={{ presentation: "modal", headerShown: false }} />
         <Stack.Screen name="compose" options={{ presentation: "modal", title: "New message" }} />
         <Stack.Screen name="settings" options={{ presentation: "modal", headerShown: false }} />
       </Stack>

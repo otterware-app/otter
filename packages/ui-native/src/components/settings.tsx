@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View, type ScrollViewProps } from "react-native"
 import { alpha, useTheme, type ColorToken } from "../theme.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { Switch } from "./switch.tsx";
-import { Text } from "./text.tsx";
+import { Text, type TextProps } from "./text.tsx";
 
 /** SettingsKit.swift: T3 Code's settings look, titled groups on soft cards. */
 export function SettingsPage({ children, ...props }: ScrollViewProps & { children: ReactNode }) {
@@ -25,11 +25,15 @@ export function SettingsPage({ children, ...props }: ScrollViewProps & { childre
 /** A group of rows on a card, with a title over it and a footer under it; rows are divided for you. */
 export function SettingsSection({
   title,
+  headline = false,
   footer,
   children,
 }: {
   title?: string;
-  footer?: string;
+  /** The title bold and as large as a row's, as a SwiftUI Form section's `sectionHeader()`. */
+  headline?: boolean;
+  /** Text, or paragraphs of `SettingsFooterText`. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const theme = useTheme();
@@ -38,9 +42,9 @@ export function SettingsSection({
     <View style={{ gap: 7 }}>
       {title ? (
         <Text
-          size="sm"
-          weight="medium"
-          color="mutedForeground"
+          size={headline ? "lg" : "sm"}
+          weight={headline ? "semibold" : "medium"}
+          color={headline ? "foreground" : "mutedForeground"}
           accessibilityRole="header"
           style={{ paddingHorizontal: 8 }}
         >
@@ -63,12 +67,16 @@ export function SettingsSection({
         ))}
       </View>
       {footer ? (
-        <Text size="body" color="mutedForeground" style={{ paddingHorizontal: 8, paddingTop: 1 }}>
-          {footer}
-        </Text>
+        <View style={{ paddingHorizontal: 8, paddingTop: 1, gap: 6 }}>
+          {typeof footer === "string" ? <SettingsFooterText>{footer}</SettingsFooterText> : footer}
+        </View>
       ) : null}
     </View>
   );
+}
+
+export function SettingsFooterText(props: Omit<TextProps, "size" | "color">) {
+  return <Text size="body" color="mutedForeground" {...props} />;
 }
 
 export function SettingsDivider() {
@@ -174,12 +182,15 @@ export function SettingsRow({
 /** A row with a switch: tapping the row flips it too. */
 export function SettingsSwitchRow({
   title,
+  description,
   icon,
   value,
   onValueChange,
   disabled,
 }: {
   title: string;
+  /** Under the title, muted. */
+  description?: string;
   icon?: IconName | ReactNode;
   value: boolean;
   onValueChange: (value: boolean) => void;
@@ -191,14 +202,26 @@ export function SettingsSwitchRow({
       disabled={disabled}
       accessibilityRole="switch"
       accessibilityLabel={title}
+      accessibilityHint={description}
       accessibilityState={{ checked: value, disabled }}
       style={{ opacity: disabled ? 0.4 : 1 }}
     >
       <SettingsCell>
         <Leading icon={icon} />
-        <Text size="base" numberOfLines={1} style={{ flex: 1 }}>
-          {title}
-        </Text>
+        {description ? (
+          <View style={{ flex: 1, paddingVertical: 10, gap: 2 }}>
+            <Text size="base" numberOfLines={1}>
+              {title}
+            </Text>
+            <Text size="body" color="mutedForeground">
+              {description}
+            </Text>
+          </View>
+        ) : (
+          <Text size="base" numberOfLines={1} style={{ flex: 1 }}>
+            {title}
+          </Text>
+        )}
         <Switch
           value={value}
           onValueChange={onValueChange}

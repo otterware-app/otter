@@ -22,6 +22,7 @@ import { useFullWidthMessages } from "../settings/preferences.ts";
 import {
   confirmDelete,
   hasLabels,
+  labelChoices,
   LabelSheet,
   useMailActions,
   type LabelPicker,
@@ -52,6 +53,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
   const router = useRouter();
   const queries = useQueryClient();
   const theme = useTheme();
+  const buttonTint = alpha(theme.colors.canvas, 0.75);
   const insets = useSafeAreaInsets();
   const { mailboxes } = useMailboxes();
   const mailbox = mailboxes.find(({ look }) => look.id === scope);
@@ -165,78 +167,94 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
             <Stack.Toolbar.Menu
               icon="ellipsis"
               tintColor={theme.colors.primary}
-              accessibilityLabel="Conversation actions"
+              accessibilityLabel="More"
             >
-              {replyTo && (
-                <>
+              <Stack.Toolbar.Menu inline>
+                {replyTo ? (
                   <Stack.Toolbar.MenuAction
                     icon="arrowshape.turn.up.left.2"
                     onPress={() => compose("replyAll", replyTo)}
                   >
                     Reply all
                   </Stack.Toolbar.MenuAction>
+                ) : null}
+                {replyTo ? (
                   <Stack.Toolbar.MenuAction
                     icon="arrowshape.turn.up.right"
                     onPress={() => compose("forward", replyTo)}
                   >
                     Forward
                   </Stack.Toolbar.MenuAction>
-                </>
-              )}
-              <Stack.Toolbar.MenuAction icon="envelope" onPress={() => act("unread", true)}>
-                Mark unread
-              </Stack.Toolbar.MenuAction>
-              {bin || label === "ARCHIVE" ? (
+                ) : null}
+              </Stack.Toolbar.Menu>
+              <Stack.Toolbar.Menu inline>
                 <Stack.Toolbar.MenuAction
-                  icon="tray.and.arrow.down"
-                  onPress={() => act("restore", true)}
+                  icon={summary.threadUnread ? "envelope.open" : "envelope.badge"}
+                  onPress={() => act(summary.threadUnread ? "read" : "unread")}
                 >
-                  Move to Inbox
+                  {summary.threadUnread ? "Mark as read" : "Mark as unread"}
                 </Stack.Toolbar.MenuAction>
-              ) : actions.canArchive(summary) ? (
-                <Stack.Toolbar.MenuAction icon="archivebox" onPress={() => act("archive", true)}>
-                  Archive
-                </Stack.Toolbar.MenuAction>
-              ) : null}
-              {!bin && label !== "DRAFT" ? (
                 <Stack.Toolbar.MenuAction
-                  icon="exclamationmark.octagon"
-                  onPress={() => act("junk", true)}
+                  icon={starred ? `${flag}.slash` : flag}
+                  onPress={() => act(starred ? "unstar" : "star")}
                 >
-                  Mark as junk
+                  {starred ? (caps.stars ? "Unstar" : "Unflag") : caps.stars ? "Star" : "Flag"}
                 </Stack.Toolbar.MenuAction>
-              ) : null}
-              {caps.archiveFolder ? (
-                <Stack.Toolbar.MenuAction icon="folder" onPress={() => setLabelPicker("move")}>
-                  Move to
-                </Stack.Toolbar.MenuAction>
-              ) : null}
-              {hasLabels(account, currentLabels) ? (
-                <Stack.Toolbar.MenuAction icon="tag" onPress={() => setLabelPicker("label")}>
-                  {caps.foldersAndCategories ? "Categories" : "Labels"}
-                </Stack.Toolbar.MenuAction>
-              ) : null}
-              {agents && account ? (
+                {hasLabels(account, currentLabels) ? (
+                  <Stack.Toolbar.Menu
+                    title={caps.foldersAndCategories ? "Categories" : "Labels"}
+                    icon="tag"
+                  >
+                    {labelChoices("label", account, currentLabels).map(({ id, title }) => (
+                      <Stack.Toolbar.MenuAction
+                        key={id}
+                        isOn={summary.threadLabelIds.includes(id)}
+                        onPress={() => void actions.changeLabel("label", id, [summary])}
+                      >
+                        {title}
+                      </Stack.Toolbar.MenuAction>
+                    ))}
+                  </Stack.Toolbar.Menu>
+                ) : null}
+                {caps.archiveFolder ? (
+                  <Stack.Toolbar.MenuAction icon="folder" onPress={() => setLabelPicker("move")}>
+                    Move to
+                  </Stack.Toolbar.MenuAction>
+                ) : null}
+              </Stack.Toolbar.Menu>
+              <Stack.Toolbar.Menu inline>
+                {actions.canArchive(summary) ? (
+                  <Stack.Toolbar.MenuAction icon="archivebox" onPress={() => act("archive", true)}>
+                    Archive
+                  </Stack.Toolbar.MenuAction>
+                ) : null}
+                {bin || label === "ARCHIVE" ? (
+                  <Stack.Toolbar.MenuAction
+                    icon="tray.and.arrow.down"
+                    onPress={() => act("restore", true)}
+                  >
+                    Move to Inbox
+                  </Stack.Toolbar.MenuAction>
+                ) : null}
+                {!bin && label !== "DRAFT" ? (
+                  <Stack.Toolbar.MenuAction icon="xmark.bin" onPress={() => act("junk", true)}>
+                    Report junk
+                  </Stack.Toolbar.MenuAction>
+                ) : null}
                 <Stack.Toolbar.MenuAction
-                  icon="sparkles"
-                  onPress={() => sendToAgent([mailPointer(account.email, summary)])}
+                  icon="trash"
+                  destructive
+                  onPress={() =>
+                    act(removable ? (label === "DRAFT" ? "discard" : "delete") : "trash", true)
+                  }
                 >
-                  Send to agent
+                  {label === "DRAFT"
+                    ? "Discard draft"
+                    : label === "TRASH"
+                      ? "Delete forever"
+                      : "Trash"}
                 </Stack.Toolbar.MenuAction>
-              ) : null}
-              <Stack.Toolbar.MenuAction
-                icon="trash"
-                destructive
-                onPress={() =>
-                  act(removable ? (label === "DRAFT" ? "discard" : "delete") : "trash", true)
-                }
-              >
-                {label === "DRAFT"
-                  ? "Discard draft"
-                  : label === "TRASH"
-                    ? "Delete forever"
-                    : "Move to Trash"}
-              </Stack.Toolbar.MenuAction>
+              </Stack.Toolbar.Menu>
             </Stack.Toolbar.Menu>
           </Stack.Toolbar>
         </>
@@ -270,7 +288,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
               selectable
               style={styles.subject}
             >
-              {latest.subject || "(No subject)"}
+              {messages[0]?.subject || "(No subject)"}
             </Text>
             {mailbox && summary && (
               <View style={styles.threadLabels}>
@@ -337,11 +355,11 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
       {latest && summary && (
         <View pointerEvents="box-none" style={[styles.bottom, { bottom: insets.bottom + 6 }]}>
           {actions.canArchive(summary) ? (
-            <Glass shape="circle">
+            <Glass shape="circle" interactive tint={buttonTint}>
               <MailButton title="Archive" icon="archivebox" onPress={() => act("archive", true)} />
             </Glass>
           ) : bin || label === "ARCHIVE" ? (
-            <Glass shape="circle">
+            <Glass shape="circle" interactive tint={buttonTint}>
               <MailButton
                 title="Move to Inbox"
                 icon="tray.and.arrow.down"
@@ -349,7 +367,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
               />
             </Glass>
           ) : null}
-          <Glass shape="circle">
+          <Glass shape="circle" interactive tint={buttonTint}>
             <MailButton
               title={removable ? (label === "DRAFT" ? "Discard draft" : "Delete forever") : "Trash"}
               icon="trash"
@@ -360,7 +378,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
           </Glass>
           <View style={{ flex: 1 }} />
           {agents && account && (
-            <Glass shape="circle">
+            <Glass shape="circle" interactive tint={buttonTint}>
               <MailButton
                 title="Send to agent"
                 icon="sparkles"
@@ -369,7 +387,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
             </Glass>
           )}
           {latest.labelIds.includes("DRAFT") ? (
-            <Glass shape="circle">
+            <Glass shape="circle" interactive tint={buttonTint}>
               <MailButton
                 title="Edit draft"
                 icon="square.and.pencil"
@@ -378,7 +396,7 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
             </Glass>
           ) : (
             replyTo && (
-              <Glass shape="circle">
+              <Glass shape="circle" interactive tint={buttonTint}>
                 <MailButton
                   title="Reply"
                   icon="arrowshape.turn.up.left"

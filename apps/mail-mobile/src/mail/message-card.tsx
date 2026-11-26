@@ -1,9 +1,10 @@
 import { mailApi } from "@otter/client/mail/api";
 import { parseAddressEntry, splitAddressList } from "@otter/client/mail/address";
 import { formatFullDate } from "@otter/client/mail/format";
-import { useMessage } from "@otter/client/mail/hooks";
+import { useAccounts, useMessage } from "@otter/client/mail/hooks";
 import { splitPlainQuote } from "@otter/client/mail/reply";
 import type { MessageDetail, MessageSummary } from "@otter/client/mail/types";
+import { native } from "@otter/mobile/native";
 import { Button } from "@otter/ui-native/components/button";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
@@ -37,8 +38,20 @@ type MessageProps = {
 };
 
 export function MessageCard(props: MessageProps) {
-  if (props.opened) return <MessageBody {...props} />;
-  return <MessageHeader account={props.account} message={props.message} onPress={props.toggle} />;
+  return (
+    <View style={styles.message}>
+      {props.opened ? (
+        <MessageBody {...props} />
+      ) : (
+        <MessageHeader account={props.account} message={props.message} onPress={props.toggle} />
+      )}
+    </View>
+  );
+}
+
+function useOwnAddresses(accountId: string): string[] {
+  const account = useAccounts().data?.find(({ id }) => id === accountId);
+  return [account?.email ?? "", ...(account?.sendAs ?? [])].map((address) => address.toLowerCase());
 }
 
 function MessageHeader({
@@ -54,7 +67,9 @@ function MessageHeader({
   onPress: () => void;
   onMenu?: () => void;
 }) {
-  const sender = message.fromName || message.fromEmail;
+  const own = useOwnAddresses(account);
+  const name = message.fromName || message.fromEmail;
+  const sender = own.includes(message.fromEmail.toLowerCase()) ? "Me" : name;
   return (
     <Pressable
       accessibilityRole="button"
@@ -66,7 +81,7 @@ function MessageHeader({
       onLongPress={onMenu}
       style={styles.sender}
     >
-      <SenderAvatar account={account} email={message.fromEmail} name={sender} size={34} />
+      <SenderAvatar account={account} email={message.fromEmail} name={name} size={34} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.senderTitle}>
           <Text weight="semibold" size="md" numberOfLines={1} style={{ flex: 1 }}>
@@ -95,6 +110,7 @@ function MessageBody({
   toggle,
 }: MessageProps) {
   const theme = useTheme();
+  const own = useOwnAddresses(account);
   const detail = useMessage(account, message.id);
   const [showAddress, setShowAddress] = useState(false);
   const [showQuote, setShowQuote] = useState(false);
@@ -224,9 +240,7 @@ function MessageBody({
   const recipients = splitAddressList(detail.data?.to ?? message.to).map(parseAddressEntry);
   const to = recipients
     .map((recipient) =>
-      recipient.email.toLowerCase() === email.toLowerCase()
-        ? "me"
-        : recipient.name || recipient.email,
+      own.includes(recipient.email.toLowerCase()) ? "me" : recipient.name || recipient.email,
     )
     .join(", ");
   const header = (
@@ -391,14 +405,21 @@ function MessageBody({
               onPress={() => void attachmentFile(file, false)}
               style={[styles.file, { borderColor: theme.colors.border }]}
             >
-              {busyAttachment === file.id ? (
-                <Spinner />
-              ) : (
-                <Icon name="paperclip" color="mutedForeground" />
-              )}
-              <Text size="sm" numberOfLines={1} style={{ flexShrink: 1 }}>
-                {file.filename}
-              </Text>
+              <View style={styles.fileIcon}>
+                {busyAttachment === file.id ? (
+                  <Spinner />
+                ) : (
+                  <Icon name={fileSymbol(file.mimeType)} size={18} color="mutedForeground" />
+                )}
+              </View>
+              <View style={styles.fileText}>
+                <Text size="md" weight="medium" numberOfLines={1}>
+                  {file.filename}
+                </Text>
+                <Text size="xs" color="mutedForeground">
+                  {native.formatByteCount(file.size)}
+                </Text>
+              </View>
             </Pressable>
           ))}
         </View>
@@ -409,6 +430,14 @@ function MessageBody({
 
 const emptyImages: Record<string, string> = {};
 
+function fileSymbol(mimeType: string): IconName {
+  if (mimeType.startsWith("image/")) return "photo";
+  if (mimeType === "application/pdf") return "doc.richtext";
+  if (mimeType === "text/calendar") return "calendar";
+  if (mimeType === "text/csv") return "tablecells";
+  return "doc";
+}
+
 export const replyOptions: { id: ReplyMode; title: string; icon: IconName }[] = [
   { id: "reply", title: "Reply", icon: "arrowshape.turn.up.left" },
   { id: "replyAll", title: "Reply all", icon: "arrowshape.turn.up.left.2" },
@@ -416,6 +445,7 @@ export const replyOptions: { id: ReplyMode; title: string; icon: IconName }[] = 
 ];
 
 const styles = StyleSheet.create({
+  message: { marginBottom: 12 },
   sender: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -426,13 +456,15 @@ const styles = StyleSheet.create({
   translationAnchor: { position: "absolute", width: 1, height: 1 },
   files: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 17, marginHorizontal: 20 },
   file: {
-    maxWidth: "100%",
-    minHeight: 42,
+    maxWidth: 240,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 10,
+    padding: 6,
+    paddingRight: 14,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
+  fileIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  fileText: { flexShrink: 1, gap: 1 },
 });

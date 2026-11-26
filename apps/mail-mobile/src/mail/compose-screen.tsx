@@ -322,6 +322,14 @@ function Composer({
   });
   const bodyInput = useRef<ComponentRef<typeof TextInput>>(null);
   const positioned = useRef(false);
+  const [focusBody] = useState(Boolean(fields.to));
+
+  useEffect(() => {
+    if (!focusBody) return;
+    positioned.current = true;
+    bodyInput.current?.setSelection(0, 0);
+    bodyInput.current?.focus();
+  }, [focusBody]);
 
   async function saveRecovery() {
     if (!owner) throw new Error("Draft recovery is still loading. Keep this message open.");
@@ -588,9 +596,9 @@ function Composer({
         <Stack.Toolbar.Button
           icon="arrow.up"
           accessibilityLabel="Send"
-          variant="prominent"
-          tintColor={theme.colors.primary}
-          disabled={!canSend}
+          variant={canSend ? "prominent" : "plain"}
+          tintColor={canSend ? theme.colors.primary : theme.colors.canvas}
+          disabled={busy}
           onPress={() => void sendNow()}
         />
       </Stack.Toolbar>
@@ -684,7 +692,6 @@ function Composer({
         placeholderTextColor={theme.colors.mutedForeground}
         value={fields.body}
         onChangeText={(body) => setFields((current) => ({ ...current, body }))}
-        autoFocus={Boolean(fields.to)}
         selectionColor={theme.colors.primary}
         editable={!busy}
         multiline
@@ -916,7 +923,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { width: 54 },
   fromLabel: { marginBottom: 8 },
-  recipientField: { alignItems: "flex-start", paddingBottom: 6 },
+  recipientField: { alignItems: "flex-start", minHeight: 48, paddingBottom: 6 },
   recipientChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 6 },
   recipientChip: {
     flexDirection: "row",
@@ -939,7 +946,7 @@ const styles = StyleSheet.create({
   accessories: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   body: { minHeight: 220, lineHeight: 24, textAlignVertical: "top", padding: 0, marginTop: -11 },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 9 },
-  attachmentActions: { flexDirection: "row", alignItems: "center", gap: 24 },
+  attachmentActions: { flexDirection: "row", alignItems: "center", gap: 20, marginTop: -4 },
   attachmentAction: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 10 },
   attachments: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   file: {

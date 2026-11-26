@@ -16,11 +16,11 @@ const SYSTEM_PLACES: { id: string; icon: IconName }[] = [
   { id: "INBOX", icon: "tray" },
   { id: "STARRED", icon: "star" },
   { id: "SENT", icon: "paperplane" },
-  { id: "DRAFT", icon: "doc.text" },
-  { id: "IMPORTANT", icon: "exclamationmark.circle" },
-  { id: ALL_MAIL_LABEL_ID, icon: "tray.2" },
+  { id: "DRAFT", icon: "doc" },
+  { id: "IMPORTANT", icon: "bookmark" },
+  { id: ALL_MAIL_LABEL_ID, icon: "tray.full" },
   { id: "ARCHIVE", icon: "archivebox" },
-  { id: "SPAM", icon: "exclamationmark.octagon" },
+  { id: "SPAM", icon: "xmark.bin" },
   { id: "TRASH", icon: "trash" },
 ];
 

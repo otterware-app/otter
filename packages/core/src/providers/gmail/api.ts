@@ -450,6 +450,7 @@ export interface RawMessageMetadata {
   snippet?: string;
   internalDate?: string;
   payload?: {
+    mimeType?: string;
     headers?: { name: string; value: string }[];
     parts?: unknown[];
   };
@@ -473,7 +474,9 @@ export function mapMessageSummary(msg: RawMessageMetadata): MessageSummary {
     unread: labelIds.includes("UNREAD"),
     starred: labelIds.includes("STARRED"),
     labelIds,
-    hasAttachments: false, // metadata format does not expose attachment info reliably
+    // Metadata has no parts: mail with attachments is a mixed multipart (its full message
+    // says for sure).
+    hasAttachments: msg.payload?.mimeType === "multipart/mixed",
     messageIdHeader: getHeaderValue(headers, "Message-ID") || undefined,
     referencesHeader: getHeaderValue(headers, "References") || undefined,
   };
@@ -671,7 +674,6 @@ interface RawMessageFull extends RawMessageMetadata {
   payload?: RawMessageMetadata["payload"] & {
     body?: { data?: string };
     parts?: MimePart[];
-    mimeType?: string;
   };
 }
 

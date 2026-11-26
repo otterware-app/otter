@@ -15,25 +15,27 @@ import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
 import { alpha, useTheme } from "@otter/ui-native/theme";
 import { FlashList } from "@shopify/flash-list";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Link, Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActionSheetIOS, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { benchmarkAccountId } from "../core.ts";
 import {
-  FolderPicker,
   MailBar,
+  MailboxesCard,
   MailButton,
-  MailboxPicker,
-  MailSheet,
-  SheetRow,
+  MailPopover,
+  PlacesCard,
+  RecentsCard,
 } from "../frame/mail-bar.tsx";
+import { MenuButton, type MenuAction } from "../frame/menu-button.tsx";
 import { usePreference } from "../settings/preferences.ts";
 import { BenchmarkStatus } from "./benchmark-status.tsx";
 import {
   confirmDelete,
   hasLabels,
+  labelChoices,
   LabelSheet,
   mailFailure,
   useMailActions,
@@ -41,6 +43,7 @@ import {
   type MailAction,
 } from "./mail-actions.tsx";
 import { MailRow } from "./mail-row.tsx";
+import { rowLabels } from "@otter/client/mail/rows";
 import { useRecoveries, useRecoveryOwner, type RecoveryDraft } from "./draft-recovery.ts";
 import { mayHaveVerificationCode } from "./verification-code.ts";
 import { useMailboxes, type Mailbox } from "./mailboxes.ts";
@@ -167,6 +170,10 @@ function MailboxList({
     return () => clearTimeout(timer);
   }, [codes]);
   const picked = selected ? listed.filter((message) => selected.has(message.threadId)) : [];
+  const stickyDays = useMemo(
+    () => rows.flatMap((row, index) => ("day" in row ? [index] : [])),
+    [rows],
+  );
 
   function open(next: string, folder: string) {
     setSheet(null);
@@ -210,53 +217,117 @@ function MailboxList({
     else run();
   }
 
-  function listMenu() {
-    const options = ["Select conversations", "Mark all as read", "Cancel"];
-    ActionSheetIOS.showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1 },
-      (index) => {
-        if (options[index] === "Select conversations") setSelected(new Set());
-        if (options[index] === "Mark all as read") {
-          if (alias || label === "ALL_MAIL") act("read", all.filter(unread));
-          else markLabelRead.mutate({ accountId: account.id, labelId: label });
-        }
-      },
-    );
+  function markAllRead() {
+    if (alias || label === "ALL_MAIL") act("read", all.filter(unread));
+    else markLabelRead.mutate({ accountId: account.id, labelId: label });
   }
 
-  function selectionMenu() {
-    const options = [
-      { title: "Mark as read", run: () => act("read", picked, true) },
-      { title: "Mark as unread", run: () => act("unread", picked, true) },
-      ...(capabilities.archiveFolder
-        ? [{ title: "Move to", run: () => setLabelPicker("move") }]
-        : []),
-      ...(hasLabels(account, currentLabels)
-        ? [
-            {
-              title: capabilities.foldersAndCategories ? "Categories" : "Labels",
-              run: () => setLabelPicker("label"),
-            },
-          ]
-        : []),
-      ...(!isBin && label !== "DRAFT"
-        ? [{ title: "Mark as junk", run: () => act("junk", picked, true) }]
-        : []),
-      ...(agents
-        ? [
-            {
-              title: "Send to agent",
-              run: () => sendToAgent(picked.map((message) => mailPointer(account.email, message))),
-            },
-          ]
-        : []),
-    ];
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: [...options.map(({ title }) => title), "Cancel"],
-        cancelButtonIndex: options.length,
-      },
-      (index) => options[index]?.run(),
+  function compose(params: Record<string, string> = {}) {
+    router.push({ pathname: "/compose", params: { account: look.id, ...params } });
+  }
+
+  function openThread(folder: string, message: MessageSummary) {
+    if (folder === "DRAFT" && message.labelIds.includes("DRAFT"))
+      compose({ draft: message.id, thread: message.threadId });
+    else
+      router.push({
+        pathname: "/mail/[account]/[label]/[thread]",
+        params: { account: look.id, label: folder, thread: message.threadId },
+      });
+  }
+
+  const labelsTitle = capabilities.foldersAndCategories ? "Categories" : "Labels";
+  const selectionActions: MenuAction[] = [
+    { title: "Mark as read", icon: "envelope.open", onPress: () => act("read", picked, true) },
+    { title: "Mark as unread", icon: "envelope.badge", onPress: () => act("unread", picked, true) },
+    ...(hasLabels(account, currentLabels)
+      ? [{ title: labelsTitle, icon: "tag" as const, onPress: () => setLabelPicker("label") }]
+      : []),
+    ...(capabilities.archiveFolder
+      ? [{ title: "Move to", icon: "folder" as const, onPress: () => setLabelPicker("move") }]
+      : []),
+    ...(!isBin && label !== "DRAFT"
+      ? [
+          {
+            title: "Report junk",
+            icon: "xmark.bin" as const,
+            onPress: () => act("junk", picked, true),
+          },
+        ]
+      : []),
+  ];
+
+  function rowMenu(message: MessageSummary) {
+    const has = (id: string) => rowLabels(message).includes(id);
+    const choices = (kind: "label" | "move") =>
+      labelChoices(kind, account, currentLabels).map(({ id, title }) => (
+        <Link.MenuAction
+          key={id}
+          isOn={has(id)}
+          onPress={() => void actions.changeLabel(kind, id, [message])}
+        >
+          {title}
+        </Link.MenuAction>
+      ));
+    const isUnread = unread(message);
+    const starred = message.threadStarred ?? message.starred;
+    const mark = capabilities.stars ? "star" : "flag";
+    const markTitle = capabilities.stars ? "Star" : "Flag";
+    return (
+      <Link.Menu>
+        <Link.Menu inline>
+          {agents ? (
+            <Link.MenuAction
+              icon="sparkles"
+              onPress={() => sendToAgent([mailPointer(account.email, message)])}
+            >
+              Send to agent
+            </Link.MenuAction>
+          ) : null}
+          <Link.MenuAction
+            icon={isUnread ? "envelope.open" : "envelope.badge"}
+            onPress={() => act(isUnread ? "read" : "unread", [message])}
+          >
+            {isUnread ? "Mark as read" : "Mark as unread"}
+          </Link.MenuAction>
+          <Link.MenuAction
+            icon={starred ? `${mark}.slash` : mark}
+            onPress={() => act(starred ? "unstar" : "star", [message])}
+          >
+            {starred ? `Un${markTitle.toLowerCase()}` : markTitle}
+          </Link.MenuAction>
+          {hasLabels(account, currentLabels) ? (
+            <Link.Menu title={labelsTitle} icon="tag">
+              {choices("label")}
+            </Link.Menu>
+          ) : null}
+          {capabilities.archiveFolder ? (
+            <Link.Menu title="Move to" icon="folder">
+              {choices("move")}
+            </Link.Menu>
+          ) : null}
+        </Link.Menu>
+        <Link.Menu inline>
+          {actions.canArchive(message) ? (
+            <Link.MenuAction icon="archivebox" onPress={() => act("archive", [message])}>
+              Archive
+            </Link.MenuAction>
+          ) : null}
+          {isBin || label === "ARCHIVE" ? (
+            <Link.MenuAction icon="tray.and.arrow.down" onPress={() => act("restore", [message])}>
+              Move to Inbox
+            </Link.MenuAction>
+          ) : null}
+          {!isBin && label !== "DRAFT" ? (
+            <Link.MenuAction icon="xmark.bin" onPress={() => act("junk", [message])}>
+              Report junk
+            </Link.MenuAction>
+          ) : null}
+          <Link.MenuAction icon="trash" destructive onPress={() => act(destructive, [message])}>
+            {destructiveTitle}
+          </Link.MenuAction>
+        </Link.Menu>
+      </Link.Menu>
     );
   }
 
@@ -266,7 +337,7 @@ function MailboxList({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${title}, ${getAccountDisplayName(look)}, show folders`}
-          onPress={() => setSheet("folders")}
+          onPress={() => setSheet(sheet === "folders" ? null : "folders")}
           style={styles.heading}
         >
           <Text size="xl" numberOfLines={1}>
@@ -279,13 +350,37 @@ function MailboxList({
           </Text>
         </Pressable>
         {selected ? (
-          <Button title="Done" size="sm" variant="ghost" onPress={() => setSelected(null)} />
+          <Pressable accessibilityRole="button" onPress={() => setSelected(null)}>
+            <Glass interactive style={styles.done}>
+              <Text size="lg" color="primary">
+                Done
+              </Text>
+            </Glass>
+          </Pressable>
         ) : (
-          <Glass shape="circle">
-            <MailButton title="Mailbox actions" onPress={listMenu}>
+          <MenuButton
+            accessibilityLabel="More"
+            sections={[
+              [
+                {
+                  title: "Select messages",
+                  icon: "checkmark.circle",
+                  disabled: listed.length === 0,
+                  onPress: () => setSelected(new Set()),
+                },
+                {
+                  title: "Mark all as read",
+                  icon: "envelope.open",
+                  disabled: !all.some(unread),
+                  onPress: markAllRead,
+                },
+              ],
+            ]}
+          >
+            <Glass shape="circle" style={styles.more}>
               <Icon name="ellipsis" size={14} weight="semibold" color="primary" />
-            </MailButton>
-          </Glass>
+            </Glass>
+          </MenuButton>
         )}
       </View>
       <FlashList
@@ -293,7 +388,8 @@ function MailboxList({
         extraData={selected}
         getItemType={(item) => ("day" in item ? "day" : "thread")}
         keyExtractor={(item) => ("day" in item ? `day:${item.day}` : item.message.threadId)}
-        renderItem={({ item }) => {
+        stickyHeaderIndices={stickyDays}
+        renderItem={({ item, target }) => {
           if ("day" in item)
             return (
               <Pressable
@@ -306,7 +402,12 @@ function MailboxList({
                     return next;
                   })
                 }
-                style={styles.day}
+                style={[
+                  styles.day,
+                  target === "StickyHeader"
+                    ? { backgroundColor: theme.colors.canvas }
+                    : styles.dayGap,
+                ]}
               >
                 <Icon
                   name={collapsed.has(item.day) ? "chevron.right" : "chevron.down"}
@@ -324,7 +425,7 @@ function MailboxList({
             );
           const message = item.message;
           const canRestore = isBin || label === "ARCHIVE";
-          return (
+          const row = (
             <MailRow
               message={message}
               account={look.id}
@@ -335,7 +436,7 @@ function MailboxList({
               flagged={!capabilities.stars}
               fullWidth={fullWidth}
               selected={selected?.has(message.threadId)}
-              onSelect={() => toggleSelection(message.threadId)}
+              onSelect={selected ? () => toggleSelection(message.threadId) : undefined}
               leading={
                 canRestore
                   ? {
@@ -353,6 +454,19 @@ function MailboxList({
                 run: () => act(destructive, [message]),
               }}
             />
+          );
+          if (selected) return row;
+          return (
+            <Link
+              href={{
+                pathname: "/mail/[account]/[label]/[thread]",
+                params: { account: look.id, label, thread: message.threadId },
+              }}
+              asChild
+            >
+              <Link.Trigger>{row}</Link.Trigger>
+              {rowMenu(message)}
+            </Link>
           );
         }}
         onViewableItemsChanged={({ viewableItems }) => {
@@ -473,52 +587,131 @@ function MailboxList({
         }
         ListFooterComponent={messages.isFetchingNextPage ? <Spinner /> : null}
       />
+      <MailPopover
+        visible={recent !== null}
+        reading={hidden}
+        align={recent === "DRAFT" ? "right" : "left"}
+        onClose={() => setRecent(null)}
+      >
+        <RecentsCard
+          folder={recent ?? "INBOX"}
+          messages={recentMessages.data?.pages[0]?.messages ?? empty}
+          onOpen={(message) => {
+            setRecent(null);
+            openThread(recent ?? "INBOX", message);
+          }}
+          onCompose={() => {
+            setRecent(null);
+            compose();
+          }}
+        />
+      </MailPopover>
+      <MailPopover
+        visible={sheet === "mailboxes"}
+        reading={hidden}
+        align="left"
+        onClose={() => setSheet(null)}
+      >
+        <MailboxesCard
+          mailboxes={mailboxes}
+          current={look.id}
+          onPick={(id) => open(id, "INBOX")}
+          onManage={() => {
+            setSheet(null);
+            router.push("/settings/mailboxes", { withAnchor: true });
+          }}
+        />
+      </MailPopover>
+      <MailPopover
+        visible={sheet === "folders"}
+        reading={hidden}
+        align="right"
+        onClose={() => setSheet(null)}
+      >
+        <PlacesCard
+          mailbox={mailbox}
+          labels={currentLabels}
+          selected={label}
+          status={sync}
+          onPick={(id) => open(look.id, id)}
+          onSync={() => {
+            setSheet(null);
+            void syncNow();
+          }}
+        />
+      </MailPopover>
       {selected ? (
         <View pointerEvents="box-none" style={[styles.selectionBar, { bottom: insets.bottom + 6 }]}>
-          <Glass style={styles.selectionPill}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${picked.length} selected, ${picked.length === listed.length ? "deselect all" : "select all"}`}
-              onPress={() =>
-                setSelected(
-                  picked.length === listed.length
-                    ? new Set()
-                    : new Set(listed.map((message) => message.threadId)),
-                )
-              }
-              style={styles.selectionCount}
-            >
-              <Text size="sm" weight="medium">
+          <MenuButton
+            accessibilityLabel={`${picked.length} selected`}
+            sections={[
+              [
+                {
+                  title: picked.length === listed.length ? "Deselect all" : "Select all",
+                  onPress: () =>
+                    setSelected(
+                      picked.length === listed.length
+                        ? new Set()
+                        : new Set(listed.map((message) => message.threadId)),
+                    ),
+                },
+              ],
+            ]}
+          >
+            <Glass interactive style={styles.selectionCount}>
+              <Text size="lg" color="primary">
                 {picked.length} selected
               </Text>
-            </Pressable>
+            </Glass>
+          </MenuButton>
+          <View style={{ flex: 1 }} />
+          <Glass style={styles.selectionPill}>
+            {agents ? (
+              <MailButton
+                title="Send to agent"
+                disabled={!picked.length}
+                onPress={() => {
+                  sendToAgent(picked.map((message) => mailPointer(account.email, message)));
+                  setSelected(null);
+                }}
+              >
+                <Icon name="sparkles" size={21} color="primary" />
+              </MailButton>
+            ) : null}
             {isBin || label === "ARCHIVE" ? (
               <MailButton
                 title="Move to Inbox"
-                icon="tray.and.arrow.down"
                 disabled={!picked.length}
                 onPress={() => act("restore", picked, true)}
-              />
+              >
+                <Icon name="tray.and.arrow.down" size={21} color="primary" />
+              </MailButton>
             ) : (
               <MailButton
                 title="Archive"
-                icon="archivebox"
                 disabled={!picked.some(actions.canArchive)}
                 onPress={() => act("archive", picked, true)}
-              />
+              >
+                <Icon name="archivebox" size={21} color="primary" />
+              </MailButton>
             )}
-            <MailButton
-              title="Selection actions"
-              icon="ellipsis"
-              disabled={!picked.length}
-              onPress={selectionMenu}
-            />
+            <MenuButton
+              accessibilityLabel="Message actions"
+              sections={[
+                selectionActions.map((action) => ({ ...action, disabled: !picked.length })),
+              ]}
+            >
+              <View style={[styles.selectionIcon, { opacity: picked.length ? 1 : 0.35 }]}>
+                <Icon name="tag" size={21} color="primary" />
+              </View>
+            </MenuButton>
             <MailButton
               title={destructive === "discard" ? "Discard drafts" : destructiveTitle}
-              icon="trash"
               disabled={!picked.length}
               onPress={() => act(destructive, picked, true)}
-            />
+            >
+              <Icon name="trash" size={21} color="primary" />
+            </MailButton>
           </Glass>
         </View>
       ) : (
@@ -530,72 +723,24 @@ function MailboxList({
             Boolean(labels.data?.find(({ id }) => id === "INBOX")?.unread) ||
             (label === "INBOX" && all.some(unread))
           }
-          onMailbox={() => setSheet("mailboxes")}
-          onLabel={(id) => open(look.id, id)}
-          onFolders={() => setSheet("folders")}
-          onSearch={() => router.push({ pathname: "/search", params: { account: look.id } })}
-          onCompose={() => router.push({ pathname: "/compose", params: { account: look.id } })}
-          onSettings={() => router.push("/settings")}
-          onRecents={setRecent}
-        />
-      )}
-      <MailSheet
-        title={recent ? (folderName(recent, capabilities) ?? "Recent") : ""}
-        visible={recent !== null}
-        onClose={() => setRecent(null)}
-      >
-        {recentMessages.data?.pages[0]?.messages.slice(0, 6).map((message) => (
-          <SheetRow
-            key={message.threadId}
-            title={message.subject || "(No subject)"}
-            detail={message.fromName || message.fromEmail}
-            icon={recent === "DRAFT" ? "square.and.pencil" : "envelope"}
-            onPress={() => {
-              const folder = recent ?? "INBOX";
-              setRecent(null);
-              if (folder === "DRAFT")
-                router.push({
-                  pathname: "/compose",
-                  params: { account: look.id, draft: message.id, thread: message.threadId },
-                });
-              else
-                router.push({
-                  pathname: "/mail/[account]/[label]/[thread]",
-                  params: { account: look.id, label: folder, thread: message.threadId },
-                });
-            }}
-          />
-        ))}
-        {recentMessages.isPending && recent ? <Spinner /> : null}
-        <SheetRow
-          title="Open folder"
-          icon="folder"
-          onPress={() => {
-            if (recent) open(look.id, recent);
+          onMailbox={() => {
             setRecent(null);
+            setSheet(sheet === "mailboxes" ? null : "mailboxes");
+          }}
+          onLabel={(id) => open(look.id, id)}
+          onFolders={() => {
+            setRecent(null);
+            setSheet(sheet === "folders" ? null : "folders");
+          }}
+          onSearch={() => router.push({ pathname: "/search", params: { account: look.id } })}
+          onCompose={() => compose()}
+          onSettings={() => router.push("/settings")}
+          onRecents={(folder) => {
+            setSheet(null);
+            setRecent(folder);
           }}
         />
-      </MailSheet>
-      <MailboxPicker
-        current={look.id}
-        visible={sheet === "mailboxes"}
-        mailboxes={mailboxes}
-        onClose={() => setSheet(null)}
-        onPick={(id) => open(id, "INBOX")}
-      />
-      <FolderPicker
-        mailbox={mailbox}
-        labels={currentLabels}
-        selected={label}
-        status={sync}
-        visible={sheet === "folders"}
-        onClose={() => setSheet(null)}
-        onPick={(id) => open(look.id, id)}
-        onSync={() => {
-          setSheet(null);
-          void syncNow();
-        }}
-      />
+      )}
       <LabelSheet
         kind={labelPicker}
         account={account}
@@ -638,9 +783,18 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 20,
     minHeight: 44,
-    marginTop: 22,
   },
-  selectionBar: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  selectionPill: { flexDirection: "row", alignItems: "center", padding: 4 },
-  selectionCount: { justifyContent: "center", height: 44, paddingHorizontal: 13 },
+  dayGap: { marginTop: 22 },
+  more: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  done: { height: 44, paddingHorizontal: 18, justifyContent: "center" },
+  selectionBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectionPill: { flexDirection: "row", alignItems: "center", padding: 2 },
+  selectionCount: { justifyContent: "center", height: 48, paddingHorizontal: 18 },
+  selectionIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
 });

@@ -7,18 +7,20 @@ import type { MessageSummary } from "@otter/client/mail/types";
 import { Button } from "@otter/ui-native/components/button";
 import { Chip } from "@otter/ui-native/components/chip";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
-import { Icon } from "@otter/ui-native/components/icon";
+import { Glass } from "@otter/ui-native/components/glass";
+import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
-import { typeStyle, useTheme } from "@otter/ui-native/theme";
+import { alpha, typeStyle, useTheme } from "@otter/ui-native/theme";
 import { FlashList } from "@shopify/flash-list";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Keyboard, StyleSheet, TextInput, View } from "react-native";
+import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 
 import { MailboxPicker, MailButton } from "../frame/mail-bar.tsx";
 import { MailRow } from "./mail-row.tsx";
 import { useMailboxes } from "./mailboxes.ts";
+import { SenderAvatar } from "./sender-avatar.tsx";
 
 export function SearchScreen() {
   const { account } = useLocalSearchParams<{ account: string }>();
@@ -52,15 +54,20 @@ export function SearchScreen() {
         email?.toLowerCase(),
       ),
     );
-    for (const message of inbox.data?.pages[0]?.messages ?? []) {
-      const email = message.fromEmail.toLowerCase();
-      if (!email || own.has(email)) continue;
-      const previous = from.get(email);
-      if (previous) previous.count += 1;
-      else from.set(email, { email, name: message.fromName || email, count: 1 });
+    const threads = (inbox.data?.pages ?? []).flatMap((page) => page.messages).slice(0, 200);
+    for (const thread of threads) {
+      for (const sender of thread.threadSenders ?? [
+        { name: thread.fromName, email: thread.fromEmail },
+      ]) {
+        const email = sender.email.toLowerCase();
+        if (!email || own.has(email)) continue;
+        const previous = from.get(email);
+        if (previous) previous.count += 1;
+        else from.set(email, { email, name: sender.name || sender.email, count: 1 });
+      }
     }
     return [...from.values()]
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
       .slice(0, 6);
   }, [inbox.data, mailbox?.account.email, mailbox?.account.sendAs]);
 
@@ -80,73 +87,92 @@ export function SearchScreen() {
       icon: caps.stars ? "star" : "flag",
     },
     { title: "Attachments", token: "has:attachment", icon: "paperclip" },
-  ] as const;
+  ] satisfies { title: string; token: string; icon: IconName }[];
 
   return (
     <View style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: "Search", headerBackVisible: false }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          icon="xmark"
-          accessibilityLabel="Close search"
-          onPress={() => router.back()}
-        />
-      </Stack.Toolbar>
-      <View style={styles.top}>
-        <View style={[styles.search, { backgroundColor: theme.colors.card }]}>
+      <View style={styles.header}>
+        <Glass interactive style={styles.search}>
           <Icon size={17} name="magnifyingglass" color="mutedForeground" />
           <TextInput
+            autoFocus
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
             accessibilityLabel="Search messages"
-            placeholder="Search messages"
+            placeholder="Search"
             placeholderTextColor={theme.colors.mutedForeground}
+            selectionColor={theme.colors.primary}
             value={query}
             onChangeText={setQuery}
             style={[
-              typeStyle(theme, "base", "regular"),
-              { flex: 1, color: theme.colors.foreground },
+              typeStyle(theme, "lg", "regular"),
+              { flex: 1, color: theme.colors.foreground, paddingVertical: 0 },
             ]}
           />
           {query && (
-            <MailButton
-              title="Clear search"
-              icon="xmark.circle.fill"
-              onPress={() => {
-                setQuery("");
-              }}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              onPress={() => setQuery("")}
+            >
+              <Icon name="xmark.circle.fill" size={17} color="mutedForeground" />
+            </Pressable>
           )}
+        </Glass>
+        <Glass shape="circle">
+          <MailButton title="Close search" icon="xmark" onPress={() => router.back()} />
+        </Glass>
+      </View>
+      {mailbox && enabled.length > 1 && (
+        <View style={styles.mailbox}>
+          <Chip
+            text={getAccountDisplayName(mailbox.look)}
+            variant="glass"
+            onPress={() => {
+              Keyboard.dismiss();
+              setChoosing(true);
+            }}
+          />
         </View>
-        {mailbox && enabled.length > 1 && (
-          <View style={{ alignSelf: "flex-start" }}>
-            <Chip
-              text={getAccountDisplayName(mailbox.look)}
-              variant="glass"
-              onPress={() => {
-                Keyboard.dismiss();
-                setChoosing(true);
-              }}
-            />
-          </View>
-        )}
+      )}
+      <View style={styles.filters}>
         {!didSearch && (
-          <Text size="sm" color="mutedForeground">
+          <Text size="body" weight="medium" color="mutedForeground" style={styles.heading}>
             Filters
           </Text>
         )}
-        <View style={styles.filters}>
-          {filters.map(({ title, token, icon }) => (
-            <Chip
-              key={token}
-              text={title}
-              selected={hasToken(query, token)}
-              leading={<Icon name={icon} size={12} color="mutedForeground" />}
-              onPress={() => setQuery((current) => toggleToken(current, token))}
-            />
-          ))}
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.chips}
+        >
+          {filters.map(({ title, token, icon }) => {
+            const selected = hasToken(query, token);
+            return (
+              <Pressable
+                key={token}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => setQuery((current) => toggleToken(current, token))}
+                style={({ pressed }) => [
+                  styles.chip,
+                  {
+                    backgroundColor: selected
+                      ? alpha(theme.colors.primary, 0.16)
+                      : alpha(theme.colors.foreground, 0.06),
+                    opacity: pressed ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Icon name={icon} size={15} />
+                <Text size="md">{title}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
       <FlashList
         data={didSearch && !searching ? messages : []}
@@ -189,17 +215,32 @@ export function SearchScreen() {
             )
           ) : people.length > 0 ? (
             <View style={styles.people}>
-              <Text size="sm" color="mutedForeground" style={{ marginLeft: 12 }}>
+              <Text size="body" weight="medium" color="mutedForeground" style={styles.heading}>
                 People
               </Text>
               {people.map((person) => (
-                <Button
+                <Pressable
                   key={person.email}
-                  title={person.name}
-                  icon="person.crop.circle"
-                  variant="ghost"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mail from ${person.name}`}
                   onPress={() => setQuery((current) => setOperator(current, "from", person.email))}
-                />
+                  style={({ pressed }) => [styles.person, pressed && { opacity: 0.6 }]}
+                >
+                  <SenderAvatar
+                    account={mailbox?.account.id ?? account}
+                    email={person.email}
+                    name={person.name}
+                    size={32}
+                  />
+                  <View style={styles.personText}>
+                    <Text size="md" numberOfLines={1}>
+                      {person.name}
+                    </Text>
+                    <Text size="xs" color="mutedForeground" numberOfLines={1}>
+                      {person.email}
+                    </Text>
+                  </View>
+                </Pressable>
               ))}
             </View>
           ) : null
@@ -221,17 +262,41 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  top: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 13, gap: 10 },
-  search: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 9,
-    paddingLeft: 13,
-    minHeight: 46,
-    borderRadius: 15,
-    borderCurve: "continuous",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  filters: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  search: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 44,
+    paddingHorizontal: 14,
+  },
+  mailbox: { alignSelf: "flex-start", paddingHorizontal: 16, paddingTop: 8 },
+  filters: { paddingTop: 20, paddingBottom: 12, gap: 10 },
+  heading: { paddingHorizontal: 20 },
+  chips: { paddingHorizontal: 20, gap: 8 },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+  },
   hint: { paddingHorizontal: 16, paddingBottom: 12 },
-  people: { alignItems: "flex-start", paddingHorizontal: 12, gap: 2 },
+  people: { paddingTop: 12, gap: 4 },
+  person: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    height: 50,
+    paddingHorizontal: 20,
+  },
+  personText: { flex: 1, gap: 1 },
 });

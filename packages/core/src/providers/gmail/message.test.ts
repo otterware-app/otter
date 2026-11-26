@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { setPlatform, type Platform } from "../../platform.ts";
-import { errorKind, getMessage } from "./api.ts";
+import { errorKind, getMessage, mapMessageSummary } from "./api.ts";
 
 let reply: { status: number; body: unknown };
 
@@ -44,5 +44,14 @@ describe("Gmail getMessage", () => {
   it("other refusals are not", async () => {
     reply = { status: 400, body: { error: { code: 400, message: "Invalid id value" } } };
     expect(errorKind(await failure())).toBeNull();
+  });
+});
+
+describe("Gmail mapMessageSummary", () => {
+  it("guesses attachments from a mixed multipart", () => {
+    const summary = (mimeType: string) =>
+      mapMessageSummary({ id: "1", threadId: "1", payload: { mimeType, headers: [] } });
+    expect(summary("multipart/mixed").hasAttachments).toBe(true);
+    expect(summary("multipart/alternative").hasAttachments).toBe(false);
   });
 });
