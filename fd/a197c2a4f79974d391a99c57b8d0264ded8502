@@ -1,0 +1,19 @@
+packages/browser/src/ui/page-host.tsx
+  s_d15721c8d5b6e0::t_5368ea1b575ffa 76-78,80-85,91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fda197c2a4f79974d391a99c57b8d0264ded8502",
+  "prompts": {},
+  "sessions": {
+    "s_d15721c8d5b6e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4aca1645-0eb1-4b4e-9fe3-296c87a1a536",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
