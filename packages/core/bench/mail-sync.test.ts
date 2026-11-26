@@ -186,7 +186,9 @@ const SYNCHRONOUS = process.env.OTTER_BENCH_SYNCHRONOUS ?? "NORMAL";
 /** The phone's adapter (packages/mobile/src/database.ts), on node:sqlite. */
 function phoneDatabase(path: string): SqlDatabase {
   const db = new DatabaseSync(path);
-  db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = ${SYNCHRONOUS}; PRAGMA cache_size = -32768;`);
+  db.exec(
+    `PRAGMA journal_mode = WAL; PRAGMA synchronous = ${SYNCHRONOUS}; PRAGMA cache_size = -32768;`,
+  );
   const kept = new Map<string, ReturnType<DatabaseSync["prepare"]>>();
   const statement = (sql: string) => {
     if (PREPARE_EACH) return db.prepare(sql);
