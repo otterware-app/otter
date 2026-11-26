@@ -1,0 +1,26 @@
+packages/mobile/src/long-tasks.ts
+  s_d443cfafdeb497::t_88e15520672931 50,58
+packages/core/bench/mail-sync.test.ts
+  s_d443cfafdeb497::t_a0134eaaf14ede 12-13,189
+  s_d443cfafdeb497::t_edd2173b34b0f7 400
+  s_d443cfafdeb497::t_e4a636d4a2272a 10-11,34
+packages/mobile/src/database.ts
+  s_d443cfafdeb497::t_536b6ba9b03d23 27-29
+  s_d443cfafdeb497::t_88e15520672931 93,98,107,111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "749478f57a5e06f495cce2c98b9c3534daf262d6",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
