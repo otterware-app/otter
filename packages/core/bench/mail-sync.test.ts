@@ -7,8 +7,10 @@
  *
  *   OTTER_BENCH=1 pnpm --filter @otter/core exec vp test run bench
  *
- * OTTER_BENCH_MESSAGES sets the size. The Node database models the phone's adapter
- * (packages/mobile/src/database.ts): statements kept by their SQL, WAL with `synchronous = NORMAL`.
+ * OTTER_BENCH_MESSAGES sets the size, OTTER_BENCH_LIST_MS how often the Inbox is read (100 ms; the
+ * phone's lists refresh every 8 s while a sync writes). The Node database models the phone's adapter
+ * (packages/mobile/src/database.ts): statements kept by their SQL, WAL with `synchronous = NORMAL`,
+ * a 32 MB page cache.
  * OTTER_BENCH_PREPARE=each prepares on every run instead, as that adapter did at first, and
  * OTTER_BENCH_SYNCHRONOUS=FULL is SQLite's default. Gmail's quota pacing is off: it spreads a
  * real first sync over hours of idle time, which hides nothing about how long each stretch of
@@ -29,7 +31,7 @@ import type { Platform, SqlDatabase } from "../src/platform.ts";
 const MESSAGES = Number(process.env.OTTER_BENCH_MESSAGES ?? 50_000);
 const CHANGES = 200;
 const TICK_MS = 10;
-const LIST_EVERY_MS = 100;
+const LIST_EVERY_MS = Number(process.env.OTTER_BENCH_LIST_MS ?? 100);
 const PAGE_SIZE = 50;
 const seed = DEMO_ACCOUNTS[0]!;
 
@@ -184,7 +186,7 @@ const SYNCHRONOUS = process.env.OTTER_BENCH_SYNCHRONOUS ?? "NORMAL";
 /** The phone's adapter (packages/mobile/src/database.ts), on node:sqlite. */
 function phoneDatabase(path: string): SqlDatabase {
   const db = new DatabaseSync(path);
-  db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = ${SYNCHRONOUS};`);
+  db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = ${SYNCHRONOUS}; PRAGMA cache_size = -32768;`);
   const kept = new Map<string, ReturnType<DatabaseSync["prepare"]>>();
   const statement = (sql: string) => {
     if (PREPARE_EACH) return db.prepare(sql);
@@ -395,6 +397,7 @@ describe.skipIf(!process.env.OTTER_BENCH)("Gmail sync on one thread", () => {
         MESSAGES !== 50_000 && `${MESSAGES}-messages`,
         PREPARE_EACH && "each",
         SYNCHRONOUS !== "NORMAL" && SYNCHRONOUS.toLowerCase(),
+        LIST_EVERY_MS !== 100 && `list-${LIST_EVERY_MS}`,
         profileEnabled && "profile",
       ]
         .filter(Boolean)

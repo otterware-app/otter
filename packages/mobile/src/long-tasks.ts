@@ -47,7 +47,7 @@ export function longTasks(from: number, to = Date.now()) {
 
 let slowSqlite: { at: number; ms: number; operation: string }[] = [];
 
-export function measureSqlite<T>(operation: string, run: () => T): T {
+export function measureSqlite<T>(kind: string, sql: string, run: () => T): T {
   if (!timer) return run();
   const start = performance.now();
   try {
@@ -55,6 +55,7 @@ export function measureSqlite<T>(operation: string, run: () => T): T {
   } finally {
     const ms = Math.round(performance.now() - start);
     if (ms >= 16) {
+      const operation = `${kind} ${sql.replace(/\s+/g, " ").trim().slice(0, 48)}`;
       slowSqlite.push({ at: Date.now(), ms, operation });
       if (slowSqlite.length > 1000) slowSqlite = slowSqlite.slice(-500);
     }

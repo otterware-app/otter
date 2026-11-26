@@ -24,6 +24,9 @@ export function openDatabase(name: string, backgroundCheckpoints = false): SqlDa
   // WAL with NORMAL: a commit no longer waits on the disk; a crash of the phone (not the app)
   // can lose the last commits, which the next sync fetches again.
   db.execSync("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+  // SQLite's default 2 MB of pages leaves a large mailbox's indexes on disk, and each page a
+  // statement misses is a read the JS thread waits on.
+  db.execSync("PRAGMA cache_size = -32768");
   // A commit crossing SQLite's WAL threshold would otherwise checkpoint on the JS thread.
   // A separate connection ensures the checkpoint doesn't hold the foreground connection's mutex.
   let checkpoint: SQLiteDatabase | undefined;
@@ -87,12 +90,12 @@ export function openDatabase(name: string, backgroundCheckpoints = false): SqlDa
     params.map((p) => (typeof p === "bigint" ? Number(p) : p)) as SQLiteBindValue[];
   return {
     exec: (sql) => {
-      measureSqlite(sql === "COMMIT" ? "commit" : "exec", () => db.execSync(sql));
+      measureSqlite("exec", sql, () => db.execSync(sql));
       if (sql === "COMMIT") scheduleCheckpoint();
     },
     prepare: (sql) => ({
       get: (...params) =>
-        measureSqlite("read", () => {
+        measureSqlite("read", sql, () => {
           const result = statement(sql).executeSync<Record<string, SqlValue>>(bind(params));
           try {
             return result.getFirstSync() ?? undefined;
@@ -101,11 +104,11 @@ export function openDatabase(name: string, backgroundCheckpoints = false): SqlDa
           }
         }),
       all: (...params) =>
-        measureSqlite("read", () =>
+        measureSqlite("read", sql, () =>
           statement(sql).executeSync<Record<string, SqlValue>>(bind(params)).getAllSync(),
         ),
       run: (...params) =>
-        measureSqlite("write", () => {
+        measureSqlite("write", sql, () => {
           const { changes } = statement(sql).executeSync(bind(params));
           if (changes) scheduleCheckpoint();
           return { changes };
