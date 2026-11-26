@@ -1,0 +1,22 @@
+packages/client/src/mail/hooks.ts
+  s_d15721c8d5b6e0::t_5368ea1b575ffa 8-9,164-168,353-357,365,372-373,376-380
+  s_d15721c8d5b6e0::t_bc6f6cb5bb0741 381
+apps/web/src/main/router.tsx
+  s_d15721c8d5b6e0::t_5368ea1b575ffa 23-24,118-134,142,158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ddaee27d1feb39f6f0a28ad1ff701bcd5334a9d3",
+  "prompts": {},
+  "sessions": {
+    "s_d15721c8d5b6e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4aca1645-0eb1-4b4e-9fe3-296c87a1a536",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
