@@ -64,7 +64,31 @@ mailboxes and drafts on an iPhone.
 
 ### Performance
 
-<!-- New measurements go here. -->
+The 50 ms gate is still open. After main's thread index merged, a list read caught up on
+every thread changed since the last one: at 50,000 messages, about 100 ms each 8 s during
+first sync. Each write now updates the index for what it changed, and the phone keeps a
+32 MB SQLite page cache. In Node, a list read during first sync went from 342 ms to 8 ms at
+the 95th percentile.
+
+On the simulator, most of what remains is the JavaScript thread waiting, not working. In a
+275–1,066 ms stall it used 12–79 ms of CPU; `sample` showed it in SQLite's `pread` and
+COMMIT's `fsync`, and in Objective-C runtime-lock waits inside native module calls, on a Mac
+swapping 58–69 GB with 12–14 simulators booted. One 262–265 ms block of real JavaScript work
+remains in both builds, not yet attributed (the fake Gmail server runs on the same thread in
+the benchmark). A real iPhone, or a quiet Mac, still has to measure it.
+
+| Run (Release, iPhone 18 Pro simulator) | First row | First sync max / CPU · p95 | Replay max / CPU · p95 |
+| -------------------------------------- | --------: | -------------------------- | ---------------------- |
+| Before (e45750fa), 1                   |  4,354 ms | 1,066 / 128 · 8 ms         | 40 / 49 · 11 ms        |
+| Before (e45750fa), 2                   |  5,103 ms | 793 / 51 · 8 ms            | 201 / 20 · 44 ms       |
+| Before (e45750fa), 3                   |  5,091 ms | 545 / 12 · 8 ms            | 40 / 49 · 7 ms         |
+| Index updated per write, 1             |  4,570 ms | 347 / 53 · 8 ms            | (an alert interrupted) |
+| Index updated per write, 2             |  3,973 ms | 824 / 27 · 8 ms            | 439 / 47 · 37 ms       |
+| With the page cache                    |  7,268 ms | 321 / 79 · 17 ms           | 40 / 50 · 7 ms         |
+
+If a phone confirms the stalls, core moves to a second runtime ("Threading"): Bundle Mode's
+Hermes on its own thread, with expo-sqlite, files and the Keychain reachable from it, and
+only the bridge's transport changing. SQLite's waits would then stay off the screens' thread.
 
 Three iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
 The third ran with the bounded Inbox query, which returned the first page in under 1 ms in
