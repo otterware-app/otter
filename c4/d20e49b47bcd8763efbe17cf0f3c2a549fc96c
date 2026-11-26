@@ -1,0 +1,22 @@
+packages/core/src/services/test/mail-store-threads.test.ts
+  s_d443cfafdeb497::t_d4c377fcce3425 164-179
+packages/core/src/services/mail-store.ts
+  s_d443cfafdeb497::t_04c911c4208a91 142-143,812-842,917
+  s_d443cfafdeb497::t_46ac2249362311 345,645,799-801,805-807,810-811,1319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4d20e49b47bcd8763efbe17cf0f3c2a549fc96c",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
