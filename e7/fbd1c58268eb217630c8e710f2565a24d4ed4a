@@ -1,0 +1,147 @@
+.github/workflows/ci.yml
+  s_d443cfafdeb497::t_96904d273f9c72 19,26,56,161-162,164
+AGENTS.md
+  s_d443cfafdeb497::t_6d1177ce879eb2 126-132,157,174-175,243-244,274-280,293-294
+apps/mail-mobile/README.md
+  s_d443cfafdeb497::t_d4cdb02097d804 1,5-6,12-16,44-55
+apps/mail-mobile/app.config.ts
+  s_d443cfafdeb497::t_a96ca1e6b671ba 53-61
+apps/mail-mobile/metro.config.cjs
+  s_d443cfafdeb497::t_b60e0cc7847305 1-21
+apps/mail-mobile/package.json
+  s_d443cfafdeb497::t_c986fa11b50243 3,15,21,23
+apps/mail-mobile/src/account/account-screen.tsx
+  s_d443cfafdeb497::t_3ad02d1f73f9eb 1,3,10,12,18-20,37,40-92,94-97,104-141,143,146-156,158-168
+apps/mail-mobile/src/account/imap-form.tsx
+  s_d443cfafdeb497::t_e2dea7168105e2 68,111
+apps/mail-mobile/src/account/mailbox-settings.tsx
+  s_d443cfafdeb497::t_c6547478c6fa8a 16,85,109,113,122-128,130-135,137-141
+apps/mail-mobile/src/account/welcome-screen.tsx
+  s_d443cfafdeb497::t_8a40016ebb7845 1-6,10-14,16-17,19-21,23-80,82-107,110-140,142-191
+apps/mail-mobile/src/app/_layout.tsx
+  s_d443cfafdeb497::t_e6966fc7967cee 5,23-26,67
+apps/mail-mobile/src/app/settings/_layout.tsx
+  s_d443cfafdeb497::t_1a02d91d2dbb8c 4-5
+apps/mail-mobile/src/core.ts
+  s_d443cfafdeb497::t_cd95f357d0ebc5 2,8,10,14-15,28,30
+apps/mail-mobile/src/error-reports.ts
+  s_d443cfafdeb497::t_32da96ac471212 1-66
+apps/mail-mobile/src/frame/mail-bar.tsx
+  s_d443cfafdeb497::t_c80ae50103e957 3-5,9,11,14,92-98,104,111,175,189,196-197,199,351-540,556,558,560-563,569-590,592-636,638-645,702-732,741
+apps/mail-mobile/src/frame/mail-notices.tsx
+  s_d443cfafdeb497::t_9ec51581e6eb67 4-5,7,10,17,30-32,34,54,57,59,61-83,88-100
+apps/mail-mobile/src/frame/mail-places.tsx
+  s_d443cfafdeb497::t_0de4399588103e 19-21,23
+apps/mail-mobile/src/frame/menu-button.tsx
+  s_d443cfafdeb497::t_a5c4b62d4e9440 1-52
+apps/mail-mobile/src/mail/compose-screen.tsx
+  s_d443cfafdeb497::t_e2b55fe90bafaa 325-332,599-601,926,949
+apps/mail-mobile/src/mail/format-date.ts
+  s_d443cfafdeb497::t_f75990c01c8bf3 3
+apps/mail-mobile/src/mail/mail-actions.tsx
+  s_d443cfafdeb497::t_bb1d0d549bd278 182-196,213
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_d443cfafdeb497::t_23c64ff853918e 22-26,65-67
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_d443cfafdeb497::t_7e98e3b8088112 18,20,26,28-30,32,38,46,173-176,220-226,229-330,340,353-359,361-380,382-383,391-392,405-410,428,439,458-470,590-642,645-662,665-680,686-688,694-696,698-707,712-714,726-729,731-734,736,738-740,743,787-799
+apps/mail-mobile/src/mail/message-card.tsx
+  s_d443cfafdeb497::t_dac02be490b1c1 4,7,12,15,17,41-54,70-72,84,113,243,317-318,320,339-342,398-412,423-453,461,472,475-477,479,481-482
+apps/mail-mobile/src/mail/search-screen.tsx
+  s_d443cfafdeb497::t_91a9d343ac19b5 10-11,14,16,18,23,57-67,70,90,94-95,98,103,105,109-110,114-121,123-137,139-140,142,146-175,218,222,224-225,227-243,265-271,273,276-290,293-301
+apps/mail-mobile/src/mail/thread-screen.tsx
+  s_d443cfafdeb497::t_1512fd71d92c15 25,56,170,172-173,180-181,188-190,192-193,195,198-199,201,203-243,245-249,251-255,257,291,358,362,370,381,390,399
+apps/mail-mobile/src/notifications/mailbox-notifications.tsx
+  s_d443cfafdeb497::t_bec2de0be9a29b 66
+apps/mail-mobile/src/settings/languages-screen.tsx
+  s_d443cfafdeb497::t_2f97e0238d74a6 51
+apps/mail-mobile/src/settings/licenses.json
+  s_d443cfafdeb497::t_03e58a6e855f58 72-78,128-190,583-589,758-764
+apps/mail-mobile/src/settings/mailbox-settings-screen.tsx
+  s_d443cfafdeb497::t_8b9ed315a26bb7 7,30,95-99,124,150
+apps/mail-mobile/src/settings/mailboxes-screen.tsx
+  s_d443cfafdeb497::t_dd3d5c6c11caf1 2,8,29,33,41-47
+apps/mail-mobile/src/settings/picker-row.tsx
+  s_d443cfafdeb497::t_5205562df546e4 1-54
+apps/mail-mobile/src/settings/provider-mark.tsx
+  s_d443cfafdeb497::t_ef934eb4eccb0a 1-51
+apps/mail-mobile/src/settings/settings-screen.tsx
+  s_d443cfafdeb497::t_22c5d0e55945c4 6,10-11,14,21,24,27,29,39,41,62,88-89,93-107,116-124,132,135-137,146,149-151,156,172-173,176-178,187,190,198,203-218,229-268
+apps/mail-mobile/tsconfig.json
+  s_d443cfafdeb497::t_12978290a5e255 3
+docs/development.md
+  s_d443cfafdeb497::t_def023a73b6a26 20,344,348-351,387
+docs/error-reports.md
+  s_d443cfafdeb497::t_8ca2ff7ec2752b 41-43,60-67,77-78,83,92-94,109-110
+docs/expo-migration.md
+  s_d443cfafdeb497::t_34ccbc6de4bebe 3-5,12-23,55-67,96-98,100-106,108-110,112-113,115,119,121-122,408-410,413,415-416,419-423,437-446,489-490
+docs/features.md
+  s_d443cfafdeb497::t_b82370d27e3703 49-75,87,107,264-284,304-310,350-352,371,387-393,395,399-425,754-758,776-777,794,797-800
+docs/imap.md
+  s_d443cfafdeb497::t_cc068e5188183d 173-175
+docs/release.md
+  s_d443cfafdeb497::t_d7fbdab1f51573 10-12,32-37,45,153,155-159,169-171,206,232,241
+docs/runbook.md
+  s_d443cfafdeb497::t_9861616eeead2c 11,23,84,86-88,95-97
+packages/client/src/agents/chat-context.ts
+  s_d443cfafdeb497::t_28bb605eb4dca3 227-228
+packages/core/src/fake/gmail.ts
+  s_d443cfafdeb497::t_e3d9670a3d1eba 569-570
+packages/core/src/fake/index.ts
+  s_d443cfafdeb497::t_f32dbe095b420d 8-9
+packages/core/src/handlers/draft-sessions.ts
+  s_d443cfafdeb497::t_ec6113d9caef0b 100
+packages/core/src/providers/gmail/api.ts
+  s_d443cfafdeb497::t_3ca2f2698606c9 453,477-479
+packages/core/src/providers/gmail/message.test.ts
+  s_d443cfafdeb497::t_fe0368ecfcc854 4,49-57
+packages/core/src/providers/gmail/sync.ts
+  s_d443cfafdeb497::t_e12e928211b722 340-353,513-518,520-524
+packages/core/src/providers/outlook/sync.ts
+  s_d443cfafdeb497::t_3692829597bddb 113,120,187-191,203,205-207,226
+packages/core/src/services/mail-store.ts
+  s_d443cfafdeb497::t_479979d50a298e 368-370,386,401
+packages/core/src/services/test/mail-store-threads.test.ts
+  s_d443cfafdeb497::t_dbd2db4d130c53 104-116
+packages/mobile/ios/Keychain.swift
+  s_d443cfafdeb497::t_e1cad9475031e6 5-6
+packages/mobile/ios/OtterMobileModule.swift
+  s_d443cfafdeb497::t_01f11efa4f29cd 5,150,163,203-211,216-233,238
+packages/mobile/src/demo.ts
+  s_d443cfafdeb497::t_fe453ce34d1798 1-18
+packages/mobile/src/native.ts
+  s_d443cfafdeb497::t_b1adaea412e4fe 35-37,39,51-52
+packages/shared/src/error-reports.ts
+  s_d443cfafdeb497::t_b0873bd5b6ed26 24
+packages/ui-native/src/components/settings.tsx
+  s_d443cfafdeb497::t_b16026e1a9e062 7,28,33-36,45-47,70-72,78-81,123-124,140,151,189,196-197,209,215-228
+packages/ui-native/src/components/swipe-row.tsx
+  s_d443cfafdeb497::t_bfe69ffd63bb8a 27,36,58
+packages/ui-native/src/phone.ts
+  s_d443cfafdeb497::t_e63358d2dd87fd 9-10
+pnpm-lock.yaml
+  s_d443cfafdeb497::t_145125b67d17b0 155,338-340,356-358,362-364,1374,1384,11910,11921,11982,12000,12531-12542,12573-12589,12625-12632,15600-15612,16648-16680,17151-17152,17154,17164,17295,17298,17315,17404-17421
+scripts/export-brand-icons.ts
+  s_d443cfafdeb497::t_c2ad038570d899 231
+scripts/release-plan.test.ts
+  s_d443cfafdeb497::t_a210c15584ff4c 38-43
+scripts/release-plan.ts
+  s_d443cfafdeb497::t_fc8645f80ff2ef 43-44,47
+scripts/sentry-release-ios.ts
+  s_d443cfafdeb497::t_8ded2cfb1e5cc7 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7fbd1c58268eb217630c8e710f2565a24d4ed4a",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
