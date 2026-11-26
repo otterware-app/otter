@@ -57,6 +57,8 @@ export function errorReportOptions(opts: {
     environment: opts.environment,
     sendClientReports: false,
     maxBreadcrumbs: 100,
+    // Whole transactions, not streamed spans: only those pass through beforeSendTransaction.
+    traceLifecycle: "static",
     tracesSampler: (context: TracesSamplerSamplingContext) =>
       context.inheritOrSampleWith(
         SAMPLE_RATE_BY_OP[String(context.attributes?.["sentry.op"])] ??

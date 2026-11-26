@@ -83,4 +83,12 @@ describe("a mailbox that keeps failing to sync", () => {
     failFor("d@gmail.com", STALE_MS);
     expect(error).not.toHaveBeenCalled();
   });
+
+  it("doesn't count the time before a failure that's offline", () => {
+    failFor("e@gmail.com", STALE_MS - 20 * MINUTE);
+    syncFailed("mail", "e@gmail.com", new Error("offline"));
+    vi.advanceTimersByTime(10 * MINUTE);
+    syncFailed("mail", "e@gmail.com", new Error("boom"));
+    expect(error).not.toHaveBeenCalled();
+  });
 });

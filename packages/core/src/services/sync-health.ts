@@ -12,7 +12,7 @@ export const STALE_MS = 6 * 60 * 60_000;
 /** Retries come every 10 minutes at most while awake: a longer gap is sleep or a quit, and doesn't count. */
 const MAX_GAP_MS = 30 * 60_000;
 
-const failing = new Map<string, { at: number; failingMs: number }>();
+const failing = new Map<string, { at: number | null; failingMs: number }>();
 const reported = new Set<string>();
 
 export function syncTags(accountId: string): ReportTags {
@@ -32,17 +32,17 @@ export function syncFailed(lane: Lane, accountId: string, err: unknown): void {
   const last = failing.get(key);
   const kind = findProvider(accountId)?.errorKind(err) ?? null;
   if (kind === "network" || kind === "auth" || !isSignedIn(accountId)) {
-    if (last) last.at = now;
+    if (last) last.at = null;
     return;
   }
-  const gap = last ? now - last.at : 0;
+  const gap = last?.at != null ? now - last.at : 0;
   const failingMs = (last?.failingMs ?? 0) + (gap <= MAX_GAP_MS ? gap : 0);
   failing.set(key, { at: now, failingMs });
   if (failingMs < STALE_MS || reported.has(key)) return;
   reported.add(key);
-  const message = `${lane === "mail" ? "Mail" : "Calendar"} hasn't synced in ${STALE_MS / 3_600_000} hours`;
-  // The mailbox in the line keeps the log's deduplication from dropping a second mailbox's report.
-  logger.error("sync-health", `${message}: ${accountId}`, {
+  // The mailbox in the message keeps deduplication from dropping a second mailbox's report.
+  const message = `${lane === "mail" ? "Mail" : "Calendar"} hasn't synced in ${STALE_MS / 3_600_000} hours: ${accountId}`;
+  logger.error("sync-health", message, {
     error: new Error(message, { cause: err }),
     tags: { ...syncTags(accountId), reason: kind ?? "error" },
   });

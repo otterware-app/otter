@@ -19,7 +19,7 @@ Everything goes through `packages/shared/src/error-reports.ts`:
   (core's `callHandler`), what threw and nothing caught, React's error boundaries, a
   Durable Object's request or alarm, an agent's failed turn or check (tags `agent`, `phase`),
   a mailbox that hasn't synced for 6 hours of failing awake time (`sync-health`). The same
-  message is sent at most once every ten minutes per process. Desktop adds native crash dumps.
+  message is sent at most once every ten minutes per process.
 - **Breadcrumbs**, attached to the next error: our own `info`/`warn` log lines, routes,
   clicks, and the requests made.
 - **Traces** (`TRACES_SAMPLE_RATE`, every one for now): page loads and route changes, the
@@ -29,10 +29,11 @@ Everything goes through `packages/shared/src/error-reports.ts`:
   the web app's worker), and in the relay its requests, watch renewals
   (`watch.renew`) and push fan-out (`push.fanout`). Add one with `measure(name, op, work)`.
 - **Never**: screenshots, the view hierarchy or session replays: they show mail, which
-  Google's Limited Use rules keep people from reading without the user's consent for it. And
-  never secrets. Tokens become `[token]`, `Bearer`/`Basic` credentials and long opaque
-  strings `[redacted]`, query strings (codes, searches) are cut, and requests' headers,
-  cookies and bodies, the console and local variables are left out.
+  Google's Limited Use rules keep people from reading without the user's consent for it. Never
+  native crash dumps (they hold memory, sign-in tokens with it), and never secrets: tokens
+  become `[token]`, `Bearer`/`Basic` credentials and long opaque strings `[redacted]`, query
+  strings (codes, searches) are cut, and requests' headers, cookies and bodies, the console
+  and local variables are left out.
 - **Tags**: `scope`, and for a handler that failed on a mailbox, `provider` (`gmail`, `imap`,
   `outlook`) and for IMAP `server` (a known provider's host or `other`). The channel is the
   `environment` (`stable`, `nightly`). Pass them as `logger.failure(scope, message, err, tags)`.
