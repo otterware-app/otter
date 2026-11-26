@@ -1,0 +1,23 @@
+packages/core/src/services/otter-account.ts
+  s_d443cfafdeb497::t_f2cf3e3b101c5e 208-212
+  s_d443cfafdeb497::t_fd293ef8978b0c 10,55,203-207,213,215-221,225-263
+  s_d443cfafdeb497::t_4c564ba3af02a1 264
+packages/core/src/services/test/otter-account-sign-out.test.ts
+  s_d443cfafdeb497::t_7acccdce459a21 1-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85ad53a6cb1c10539cd4433a40221e5f163046d2",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "unknown"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
