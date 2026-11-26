@@ -1,0 +1,62 @@
+docs/features.md
+  s_d443cfafdeb497::t_a5c68c3d38e501 794,797-803
+  s_d443cfafdeb497::t_8ee556468ff0e2 72,270,309,352,390,425,756
+  s_d443cfafdeb497::t_2066f2d15395f9 395
+  s_d443cfafdeb497::t_ada0c3b0352a00 49-71,73-75,107,264-269,271-279,304-308,310,350-351,371,387-389,391-393,399-424,754-755,757-758
+  s_d443cfafdeb497::t_d3b936e069212e 281-284
+  s_d443cfafdeb497::t_a4e55ef701f794 776-777
+  s_d443cfafdeb497::t_1ca71ae069fa0d 280
+packages/client/src/agents/chat-context.ts
+  s_d443cfafdeb497::t_18c6c787c56d54 227-228
+docs/expo-migration.md
+  s_d443cfafdeb497::t_00962fe02bcded 115,119
+  s_d443cfafdeb497::t_450293a0b1a154 101-106
+  s_d443cfafdeb497::t_ada3dc0466902d 3-5,12-23,55-60,65-67,96-98,100,121-122,408-410,413,416,419-423,437-440
+  s_d443cfafdeb497::t_f13b43f5d5cd5a 415,441-446
+  s_d443cfafdeb497::t_bd57a5db7f8acd 62-64
+  s_d443cfafdeb497::t_f51dc100ff1fab 61,108-110,112-113
+docs/development.md
+  s_d443cfafdeb497::t_db2dbac9e52411 387
+  s_d443cfafdeb497::t_41379950864f11 20
+  s_d443cfafdeb497::t_a4f77c418ea2cf 344,348-351
+packages/mobile/ios/Keychain.swift
+  s_d443cfafdeb497::t_18c6c787c56d54 5-6
+AGENTS.md
+  s_d443cfafdeb497::t_7243fa881ecae6 126-132,157,174-175,243-244,274-280,293-294
+docs/release.md
+  s_d443cfafdeb497::t_2f3441290e3da1 206,232,241
+  s_d443cfafdeb497::t_6a083e466868e1 10-12,32-37,45,153,155-159,169-171
+scripts/release-plan.ts
+  s_d443cfafdeb497::t_24bc1de19a94c5 43-44,47
+packages/ui-native/src/phone.ts
+  s_d443cfafdeb497::t_86fbddd8028b6c 9-10
+docs/runbook.md
+  s_d443cfafdeb497::t_54e15eab96aebc 11,23,84,86-88,95-97
+packages/ui-native/src/components/swipe-row.tsx
+  s_d443cfafdeb497::t_18c6c787c56d54 36
+  s_d443cfafdeb497::t_0608207f1e5ffb 27,58
+.github/workflows/ci.yml
+  s_d443cfafdeb497::t_7e7ffef8e8d3a1 19,26,56,161-162,164
+scripts/release-plan.test.ts
+  s_d443cfafdeb497::t_26b449a17b65de 38-43
+docs/imap.md
+  s_d443cfafdeb497::t_d9821a3dd4a25c 173-175
+scripts/sentry-release-ios.ts
+  s_d443cfafdeb497::t_5baef4ce868f89 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e6371432954add8c663c9fe3b65a6ab8da7467e",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
