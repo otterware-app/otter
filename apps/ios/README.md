@@ -100,7 +100,7 @@ add limited server grants (or an encrypted IMAP password), while mail content st
   (`MailStore.isRest`), while the app's badge still counts it.
 - `Reports/`: error reports to Sentry (`otter-mail-ios`), with tokens scrubbed by the shared
   rules (`docs/error-reports.md`): crashes and the failures of sync, sign-in, the relay and
-  sending, with a screenshot, the view hierarchy, breadcrumbs and traces, from the Otter account
+  sending, with breadcrumbs and traces (never a screenshot: it shows mail), from the Otter account
   (or the install's random report id when signed out); off in Settings › Support. Release builds report; Debug builds only with
   `OTTER_MAIL_ERROR_REPORTS=1` in the launch environment.
 - `Home/`, `Reader/`, `Compose/`, `Settings/`: the screens.

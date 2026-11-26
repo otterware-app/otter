@@ -57,8 +57,9 @@ nonisolated enum ErrorReports {
         options.enableAutoSessionTracking = true
         options.sessionReplay.sessionSampleRate = 0
         options.sessionReplay.onErrorSampleRate = 0
-        options.attachScreenshot = true
-        options.attachViewHierarchy = true
+        // They show mail, which Google's Limited Use rules keep people from reading.
+        options.attachScreenshot = false
+        options.attachViewHierarchy = false
         options.enableSwizzling = true
         options.enableUIViewControllerTracing = true
         options.enableUserInteractionTracing = true

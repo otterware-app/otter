@@ -33,8 +33,9 @@ export function startErrorReports(): void {
     }),
     dist: build,
     integrations: [Sentry.expoRouterIntegration()],
-    attachScreenshot: true,
-    attachViewHierarchy: true,
+    // They show mail, which Google's Limited Use rules keep people from reading.
+    attachScreenshot: false,
+    attachViewHierarchy: false,
     enableUserInteractionTracing: true,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
