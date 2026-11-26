@@ -5,6 +5,8 @@ import {
   useMutation,
   useInfiniteQuery,
   useQueryClient,
+  infiniteQueryOptions,
+  queryOptions,
   type InfiniteData,
 } from "@tanstack/react-query";
 import { inThreadChange, isFolderLabel, landLabelChange } from "@otter/contracts";
@@ -159,7 +161,11 @@ export function useAccounts() {
     return unsubscribe;
   }, [qc]);
 
-  return useQuery<MailAccount[]>({
+  return useQuery(accountsQuery());
+}
+
+export const accountsQuery = () =>
+  queryOptions<MailAccount[]>({
     queryKey: queryKeys.accounts(),
     queryFn: () => {
       console.log("[hooks:useAccounts] fetching accounts");
@@ -167,7 +173,6 @@ export function useAccounts() {
     },
     staleTime: STALE_TIME,
   });
-}
 
 function withAliasPicture(
   pictures: Record<string, string> | undefined,
@@ -345,16 +350,11 @@ export function usePruneThreadRows() {
   };
 }
 
-export function useMessages(accountId: string | null, labelId?: string, alias?: string) {
-  return useInfiniteQuery<
-    ListMessagesResult,
-    Error,
-    InfiniteData<ListMessagesResult>,
-    ReturnType<typeof queryKeys.messages>,
-    string | undefined
-  >({
-    queryKey: queryKeys.messages(accountId ?? "", labelId, alias),
-    queryFn: ({ pageParam }) => {
+/** A mailbox's list, page by page: what `useMessages` shows, and what a route prefetches. */
+export const messagesQuery = (accountId: string, labelId?: string, alias?: string) =>
+  infiniteQueryOptions({
+    queryKey: queryKeys.messages(accountId, labelId, alias),
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) => {
       console.log("[hooks:useMessages] fetching messages", {
         accountId,
         labelId,
@@ -362,17 +362,22 @@ export function useMessages(accountId: string | null, labelId?: string, alias?: 
         pageToken: pageParam,
       });
       return mailApi.listMessages({
-        accountId: accountId!,
+        accountId,
         labelIds: labelId ? [labelId] : undefined,
         alias,
         pageToken: pageParam,
         maxResults: 50,
       });
     },
-    initialPageParam: undefined,
-    getNextPageParam: (lastPage) => lastPage.nextPageToken,
-    enabled: accountId != null,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: ListMessagesResult) => lastPage.nextPageToken,
     staleTime: STALE_TIME,
+  });
+
+export function useMessages(accountId: string | null, labelId?: string, alias?: string) {
+  return useInfiniteQuery({
+    ...messagesQuery(accountId ?? "", labelId, alias),
+    enabled: accountId != null,
   });
 }
 

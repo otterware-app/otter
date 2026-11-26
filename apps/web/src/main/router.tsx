@@ -20,6 +20,8 @@ import {
   toSpace,
   type MessageSearch,
 } from "@otter/client/places";
+import { accountsQuery, messagesQuery } from "@otter/client/mail/hooks";
+import { SEARCH_MAILBOX } from "@otter/client/mail/gmail-query";
 import { firstLabelOf } from "./mail/spaces";
 import { isWorkspaceSegment } from "./extensions/workspaces";
 import type { SettingsPane } from "./app-api";
@@ -113,6 +115,23 @@ const validateMessageSearch = (search: Record<string, unknown>): MessageSearch =
   message: typeof search.message === "string" ? search.message : undefined,
 });
 
+/**
+ * A mailbox's list, asked for as the route resolves: at launch that's before the screens have
+ * rendered (they'd ask once they had, and once the accounts came back), on a click before the
+ * list re-renders. Only a mailbox's own address: an alias's or a view's list is asked for by
+ * the list itself.
+ */
+function prefetchList(queryClient: QueryClient, mailbox: string, label: string): void {
+  if (isSpaceId(mailbox) || label === SEARCH_MAILBOX) return;
+  void queryClient
+    .ensureQueryData(accountsQuery())
+    .then((accounts) => {
+      if (accounts.some((a) => a.id === mailbox))
+        return queryClient.ensureInfiniteQueryData(messagesQuery(mailbox, label));
+    })
+    .catch(() => {});
+}
+
 const labelRoute = createRoute({
   getParentRoute: () => mailRoute,
   path: "mail/$mailbox/$label",
@@ -120,6 +139,7 @@ const labelRoute = createRoute({
     parse: ({ mailbox, label }) => ({ mailbox, label: toLabel(label) }),
     stringify: ({ mailbox, label }) => ({ mailbox, label: fromLabel(label) }),
   },
+  loader: ({ params, context }) => prefetchList(context.queryClient, params.mailbox, params.label),
   component: () => null,
 });
 
@@ -135,6 +155,7 @@ const messageRoute = createRoute({
     }),
   },
   validateSearch: validateMessageSearch,
+  loader: ({ params, context }) => prefetchList(context.queryClient, params.mailbox, params.label),
   component: () => null,
 });
 
