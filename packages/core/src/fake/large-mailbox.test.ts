@@ -105,6 +105,23 @@ describe("the fake Gmail", () => {
     expect((await gmail(`/messages/${deleted}`)).error.code).toBe(404);
   });
 
+  it("says a message's type in metadata without writing its body", async () => {
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
+    await installFakeGmail(memoryFiles(), { messages: 1000 });
+    const { messages } = await gmail("/messages?maxResults=100");
+    const types = new Set<string>();
+    for (const { id } of messages) {
+      const metadata = await gmail(`/messages/${id}?format=metadata&metadataHeaders=Subject`);
+      const full = await gmail(`/messages/${id}?format=full`);
+      expect(metadata.payload.mimeType).toBe(full.payload.mimeType);
+      expect(metadata.snippet).toBe(full.snippet);
+      types.add(metadata.payload.mimeType);
+    }
+    expect([...types]).toEqual(
+      expect.arrayContaining(["multipart/alternative", "multipart/mixed"]),
+    );
+  }, 30_000);
+
   it("saves the seed alone as it always has", async () => {
     vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
     const files = memoryFiles();

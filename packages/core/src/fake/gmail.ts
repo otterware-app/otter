@@ -1,7 +1,7 @@
 import { fakeTodoist } from "./todoist.ts";
 
 import * as accountStore from "../services/account-store.ts";
-import { fromBase64, toBase64 } from "../bytes.ts";
+import { fromBase64, toBase64, toBase64Url } from "../bytes.ts";
 import { yieldThread } from "../pool.ts";
 import type { GoogleAuth, Platform } from "../platform.ts";
 import type { MailAccount } from "../types.ts";
@@ -418,7 +418,7 @@ export function parseMime(raw: string): Pick<Message, "headers" | "text" | "html
         id: "",
         filename: filename || (mime === "text/calendar" ? "invite.ics" : "attachment"),
         mimeType: mime,
-        data: bytesToBase64Url(bytes),
+        data: toBase64Url(bytes),
         size: bytes.length,
       });
     } else if (mime === "text/html" && out.html === null) {
@@ -445,12 +445,6 @@ export function parseMime(raw: string): Pick<Message, "headers" | "text" | "html
       .filter((h) => keep.has(h.name.toLowerCase()))
       .map((h) => ({ name: h.name, value: decodeWords(h.value) })),
   };
-}
-
-function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function fromRaw(box: Mailbox, raw: string, threadId: string | undefined, labels: string[]) {
@@ -511,9 +505,20 @@ const bodyPart = (mimeType: string, text: string) => {
     mimeType,
     filename: "",
     headers: [{ name: "Content-Type", value: `${mimeType}; charset="UTF-8"` }],
-    body: { size: bytes.length, data: bytesToBase64Url(bytes) },
+    body: { size: bytes.length, data: toBase64Url(bytes) },
   };
 };
+
+/** What `payload(m)` would say, without writing a generated message's bodies. */
+function payloadType(m: Message): string {
+  if (m.attachments.length > 0) return "multipart/mixed";
+  const { text, html } = m.generated === undefined ? m : { text: "", html: "" };
+  return text !== null && html !== null
+    ? "multipart/alternative"
+    : html !== null
+      ? "text/html"
+      : "text/plain";
+}
 
 function payload(m: Message): object {
   const parts = bodies(m);
@@ -566,8 +571,7 @@ function messageResource(box: Mailbox, m: Message, url: URL): object {
     const headers = wanted.length
       ? m.headers.filter((h) => wanted.includes(h.name.toLowerCase()))
       : m.headers;
-    const { mimeType } = payload(m) as { mimeType: string };
-    return { ...base, payload: { mimeType, headers } };
+    return { ...base, payload: { mimeType: payloadType(m), headers } };
   }
   return { ...base, payload: payload(m) };
 }
