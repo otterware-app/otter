@@ -1,0 +1,25 @@
+packages/client/src/mail/use-draft-autosave.ts
+  s_d443cfafdeb497::t_0eebc54a2c4347 4,230,233
+  s_d443cfafdeb497::t_bb06204db739aa 406,411-412,424-425,432-435
+  s_d443cfafdeb497::t_1fcae32cce1875 231-232,234,328,344,407-410,413-423,426-431
+  s_d443cfafdeb497::t_13910056ebc336 1,225
+  s_d443cfafdeb497::t_ecc2f518b03bcc 238,241,289,291,308,318
+packages/client/src/mail/use-draft-autosave.test.ts
+  s_d443cfafdeb497::t_bb06204db739aa 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "027cac75fb2098dec4e94501e09c80503790bf6a",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "unknown"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
