@@ -10,24 +10,25 @@
 
 ## Commands
 
-| Command                                 | What it does                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `pnpm install`                          | Installs dependencies and the git pre-commit hook (formats staged files).                |
-| `pnpm dev[:fake\|:demo]`                | The web app and a local relay (see [What a dev run opens on](#what-a-dev-run-opens-on)). |
-| `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.           |
-| `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
-| `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
-| `pnpm dev:mobile:mail`                  | Builds Otter Mail and runs it in the simulator (see `apps/mail-mobile/README.md`).       |
-| `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
-| `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
-| `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
-| `pnpm bench:desktop`                    | Times the built desktop app on a large made-up mailbox (see [Speed](#speed)).            |
-| `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |
-| `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).              |
-| `pnpm typecheck`                        | TypeScript across the workspace.                                                         |
-| `pnpm lint` / `pnpm fmt`                | Oxlint and Oxfmt through Vite+.                                                          |
-| `pnpm dist:desktop:dmg`                 | Unsigned DMG + ZIP for this Mac's architecture in `release/`.                            |
-| `pnpm dist:desktop:deb`                 | The Linux .deb (x64) in `release/`; on Linux.                                            |
+| Command                                 | What it does                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm install`                          | Installs dependencies and the git pre-commit hook (formats staged files).                   |
+| `pnpm dev[:fake\|:demo]`                | The web app and a local relay (see [What a dev run opens on](#what-a-dev-run-opens-on)).    |
+| `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.              |
+| `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).              |
+| `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).                 |
+| `pnpm dev:mobile:mail`                  | Builds Otter Mail and runs it in the simulator (see `apps/mail-mobile/README.md`).          |
+| `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)).    |
+| `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                         |
+| `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                    |
+| `pnpm bench:desktop`                    | Times the built desktop app on a large made-up mailbox (see [Speed](#speed)).               |
+| `pnpm bench:mobile:mail`                | Otter Mail's JavaScript thread on the simulator over 50,000 messages (see [Speed](#speed)). |
+| `pnpm build:translator`                 | Builds the Swift translator helper.                                                         |
+| `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).                 |
+| `pnpm typecheck`                        | TypeScript across the workspace.                                                            |
+| `pnpm lint` / `pnpm fmt`                | Oxlint and Oxfmt through Vite+.                                                             |
+| `pnpm dist:desktop:dmg`                 | Unsigned DMG + ZIP for this Mac's architecture in `release/`.                               |
+| `pnpm dist:desktop:deb`                 | The Linux .deb (x64) in `release/`; on Linux.                                               |
 
 Agents' notifications with the agent's picture (Mac, `native/notifier`) need a Developer ID
 signature and an embedded profile, which the dev app lacks: it falls back to Otter's icon. To see
@@ -337,6 +338,13 @@ searching, scrolling the list, Calendar, Agents, memory. `--loaded` reopens ever
 use leaves open: the browser panel with three tabs (real sites: it needs the network), the
 calendar panel and the chat window. `--json` keeps every run. Compare a change with `main` by
 running it in both checkouts. Set `OTTER_BENCH_HOME` to keep its data home between runs.
+
+`pnpm bench:mobile:mail` builds Otter Mail for iPhone as a simulator Release over a
+50,000-message fake Gmail mailbox, runs it on its own simulator (`--device` picks another) and
+prints how long its JavaScript thread was held while the list scrolled itself: through the
+first sync, and through a replay of 200 changes after it. The gate for both is a longest block of
+50 ms or less and a 95th percentile of 16 ms or less; the time to the first row is
+informational. What it prints, and doing it by hand: `apps/mail-mobile/README.md#benchmark`.
 
 ## CI
 

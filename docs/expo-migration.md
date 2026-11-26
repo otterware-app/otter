@@ -73,9 +73,14 @@ the 95th percentile.
 On the simulator, most of what remains is the JavaScript thread waiting, not working. In a
 275–1,066 ms stall it used 12–79 ms of CPU; `sample` showed it in SQLite's `pread` and
 COMMIT's `fsync`, and in Objective-C runtime-lock waits inside native module calls, on a Mac
-swapping 58–69 GB with 12–14 simulators booted. One 262–265 ms block of real JavaScript work
-remains in both builds, not yet attributed (the fake Gmail server runs on the same thread in
-the benchmark). A real iPhone, or a quiet Mac, still has to measure it.
+swapping 58–69 GB with 12–14 simulators booted. The 262–265 ms block of real JavaScript work in both
+builds matches the fake Gmail server, which runs on the app's thread in the benchmark: Hermes's
+sampling profiler put 69% of the longest busy stretch in its `messageResource` → `payload` →
+`bytesToBase64Url`. A metadata answer wrote the generated message's whole body and encoded it
+a byte at a time, 70–350 ms for the 1% with long bodies; 266 of the 273 CPU-bound blocks over
+100 ms came right after one. The fake now answers metadata without the body and encodes with
+core's `toBase64Url`. A real iPhone, or a quiet Mac, still has to measure what remains.
+`pnpm bench:mobile:mail` runs the benchmark (apps/mail-mobile/README.md#benchmark).
 
 | Run (Release, iPhone 18 Pro simulator) | First row | First sync max / CPU · p95 | Replay max / CPU · p95 |
 | -------------------------------------- | --------: | -------------------------- | ---------------------- |

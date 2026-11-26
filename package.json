@@ -17,6 +17,7 @@
     "start": "vp run --filter @otter/desktop start",
     "build": "vp run --filter './apps/*' build",
     "bench:desktop": "node scripts/bench-desktop.ts",
+    "bench:mobile:mail": "node scripts/bench-mobile-mail.ts",
     "build:translator": "node scripts/build-translator.ts",
     "build:notifier": "node scripts/build-notifier.ts",
     "icons:export": "node scripts/export-brand-icons.ts",

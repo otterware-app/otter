@@ -14,13 +14,13 @@ import { Icon } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
 import { alpha, useTheme } from "@otter/ui-native/theme";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Link, Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { benchmarkAccountId } from "../core.ts";
+import { autoBenchmark, benchmarkAccountId } from "../core.ts";
 import {
   MailBar,
   MailboxesCard,
@@ -121,6 +121,11 @@ function MailboxList({
   const [hidden, setHidden] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastScroll = useRef(0);
+  const list = useRef<FlashListRef<Row>>(null);
+  const autoScroll = useCallback(
+    (offset: number) => list.current?.scrollToOffset({ offset, animated: true }),
+    [],
+  );
   const agents = useAgentsInstalled();
   const currentLabels = labels.data ?? [];
   const capabilities = capabilitiesOf(account);
@@ -384,6 +389,7 @@ function MailboxList({
         )}
       </View>
       <FlashList
+        ref={list}
         data={rows}
         extraData={selected}
         getItemType={(item) => ("day" in item ? "day" : "thread")}
@@ -489,7 +495,11 @@ function MailboxList({
         refreshing={refreshing}
         ListHeaderComponent={
           isBenchmark ? (
-            <BenchmarkStatus accountId={account.id} status={sync} />
+            <BenchmarkStatus
+              accountId={account.id}
+              status={sync}
+              scrollTo={autoBenchmark ? autoScroll : undefined}
+            />
           ) : (
             <View style={styles.listTop}>
               {keptDrafts.map((draft) => (

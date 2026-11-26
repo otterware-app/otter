@@ -8,7 +8,10 @@ import { importSwiftMailState } from "./account/migration.ts";
 import { errorReportsAvailable, followErrorReports, startErrorReports } from "./error-reports.ts";
 
 export const fake = process.env.EXPO_PUBLIC_OTTER_DATA === "fake" || demo;
-export const benchmark = fake && process.env.EXPO_PUBLIC_OTTER_MAIL_BENCHMARK === "1";
+const benchmarkMode = fake ? process.env.EXPO_PUBLIC_OTTER_MAIL_BENCHMARK : undefined;
+export const benchmark = benchmarkMode === "1" || benchmarkMode === "auto";
+/** `pnpm bench:mobile:mail`: the list scrolls itself, the replay follows first sync, and the results go to a file. */
+export const autoBenchmark = benchmarkMode === "auto";
 export let benchmarkAccountId: string | undefined;
 
 startErrorReports();

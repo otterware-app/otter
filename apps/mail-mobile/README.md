@@ -17,12 +17,48 @@ core's fake in its own home and Keychain service and reloads the app. Settings �
 The app runs under `dev.otterware.mail.dev`, with Metro on port 8099. Expo prebuild generates
 `ios/` from `app.config.ts`.
 
-For a development build over the 50,000-message Gmail fixture, start Metro with
-`EXPO_PUBLIC_OTTER_MAIL_BENCHMARK=1` as well as `EXPO_PUBLIC_OTTER_DATA=fake`. For performance
-measurements, set both during the iOS Release bundle instead. The benchmark gets separate
-local data and runs the large fake inbox at the same pace as the Node benchmark. Scroll during
-first sync to measure time to the first visible thread and JavaScript timer lateness. After
-sync finishes, tap **Replay 200 changes** and continue scrolling for the steady-state sample.
+## Benchmark
+
+```sh
+pnpm bench:mobile:mail
+```
+
+It builds a simulator Release with `EXPO_PUBLIC_OTTER_DATA=fake EXPO_PUBLIC_OTTER_MAIL_BENCHMARK=auto`
+(prebuilding first when `ios/` is missing, or with `--prebuild`), reinstalls it on the "Otter
+Mail Benchmark" simulator (an iPhone 18 Pro, created and booted when needed; `--device <name or
+UDID>` picks another, whose copy of the app loses its data) and launches it over a 50,000-message
+fake Gmail mailbox. The app scrolls its list on its own through the first sync, then stages 200
+fake Gmail changes and keeps scrolling through their replay, and writes what it measured to
+`Documents/fake-mail-benchmark/benchmark-result.json`. The script prints it:
+
+```text
+                         longest      p95       CPU
+First sync                856 ms     9 ms     30 ms   FAIL
+  while rows showed       856 ms     9 ms     30 ms
+Replay, 200 changes       548 ms    23 ms     39 ms   FAIL
+
+First row: 5,728 ms after launch (informational)
+First sync's longest block: 201,620 ms after launch
+Slowest SQLite call, first sync: write INSERT INTO messages (accountId, id, threadId, f, 94 ms
+Slowest SQLite call, replay: none ≥ 16 ms · replay took 1,532 ms
+Gate: FAIL
+```
+
+Each figure is how late a 10 ms timer on the JavaScript thread came (`@otter/mobile/long-tasks`):
+"longest" the longest block, "p95" the 95th percentile, "CPU" the thread's CPU time during the
+longest block (near it: the thread worked; far below: it waited, on SQLite or a lock). First
+sync counts from launch until it finishes; the replay from its start until it's applied. The
+gate is both of them, while scrolling: longest block ≤ 50 ms and p95 ≤ 16 ms. The first row's
+time and the rows-visible line are informational. A run takes about five minutes after the
+build (whose output goes to `ios/build/benchmark-build.log`); `--skip-build` reruns the last
+build, and `--timeout <minutes>` (20) is how long it waits for the results.
+
+To scroll yourself, set `EXPO_PUBLIC_OTTER_MAIL_BENCHMARK=1` instead (with
+`EXPO_PUBLIC_OTTER_DATA=fake`), in Metro's environment for a development build or in the
+Release bundle's for measurements: scroll during first sync, then tap **Replay 200 changes**
+and keep scrolling. The results show above the list. The benchmark gets separate local data
+and runs the large fake inbox at the same pace as the Node benchmark
+(`packages/core/bench/mail-sync.test.ts`).
 
 ## Production accounts
 
