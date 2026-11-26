@@ -8,7 +8,7 @@ breaks. The details behind each step are in `docs/release.md`, `infra/relay/READ
 | --------------- | --------------------------------- | ---------------------- |
 | Relay           | on merge to `main`                | nothing                |
 | Mac, Linux, web | nightly on merge, when it changed | promote a nightly      |
-| iPhone app      | on merge, when it changed         | TestFlight / App Store |
+| Otter Mail      | on merge, when it changed         | TestFlight / App Store |
 | Otter Agents    | on merge, when it changed         | TestFlight             |
 
 ## One Release workflow
@@ -20,7 +20,7 @@ it, and its first job, "What to release", works out which apps the merge changed
 | A change to                                                                      | Ships                   |
 | -------------------------------------------------------------------------------- | ----------------------- |
 | anything but the iPhone apps, `infra`, `docs`, `changelog`, `.github`, `.agents` | Mac, Linux and web      |
-| `apps/mail-mobile`, shared mobile and mail packages                              | Otter Mail for iPhone   |
+| `apps/mail-mobile` and what it bundles                                           | Otter Mail for iPhone   |
 | `apps/agents-mobile` and its shared packages                                     | Otter Agents for iPhone |
 
 Run it by hand (Actions → **Release** → Run workflow, or `gh workflow run release.yml`) and it
@@ -81,18 +81,20 @@ it, or the Changelog notes workflow once it lands after the release).
   `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` (see `docs/release.md`). The Developer ID certificate
   runs until 2031.
 
-## iPhone app
+## Otter Mail (iPhone)
 
-Released on its own, with its own version (`ios-vX.Y.Z` tags), only when `apps/mail-mobile` or what it
-bundles from `packages/shared` has changed. A Mac release doesn't need one.
+The Expo app `apps/mail-mobile`, released on its own, with its own version (`ios-vX.Y.Z` tags),
+only when it or what it bundles (the shared packages, the Translation extension) has changed. A
+Mac release doesn't need one.
 
 1. Each merge to main that touches the Expo app or its dependencies
    releases it as a patch (the Release workflow's "Otter Mail for iPhone" job); one waits while
    another runs, and a newer merge replaces the one waiting. For a minor or major version, or
    to run it yourself: Actions → **Release** → Run workflow → `apps=iphone` and `patch`,
    `minor` or `major` (or `gh workflow run release.yml -f apps=iphone -f bump=minor`). It
-   builds `main` on GitHub's `xcode-27` runner and uploads it (about 5 min), then tags the
-   commit and bumps the version on `main`.
+   generates the native project from `main`, builds it on GitHub's `xcode-27` runner
+   (`scripts/release-ios.ts`) and uploads it, then tags the commit and bumps the version on
+   `main`.
    The same from this Mac, if GitHub is down: `pnpm release:ios` (needs Xcode 27 and
    `~/.otter/signing`).
 2. Apple processes it (10–30 min). The internal group **Otter team** gets it automatically.

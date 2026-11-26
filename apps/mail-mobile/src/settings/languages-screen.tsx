@@ -48,7 +48,7 @@ export function LanguagesScreen() {
           />
         ))}
       </SettingsSection>
-      <SettingsSection>
+      <SettingsSection title="Add" headline>
         {Object.keys(languages)
           .filter((code) => !read.includes(code))
           .map((code) => (

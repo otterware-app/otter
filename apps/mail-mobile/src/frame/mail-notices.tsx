@@ -1,23 +1,20 @@
 import { useModifyThread, useUntrashThread } from "@otter/client/mail/hooks";
 import { onUndoableAction, quietParams, takeUndo, type UndoAction } from "@otter/client/mail/undo";
 import { showNotice, useNotices } from "@otter/mobile/notices";
-import { Toast } from "@otter/ui-native/components/toast";
+import { Text } from "@otter/ui-native/components/text";
+import { useTheme } from "@otter/ui-native/theme";
 import { useEffect } from "react";
-import { View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const ICON = {
-  info: "info.circle",
-  success: "checkmark.circle",
-  warning: "exclamationmark.circle",
-  error: "exclamationmark.triangle",
-} as const;
+import { barHeight } from "./mail-bar.tsx";
 
 export function MailNotices() {
   const { mutateAsync: modify } = useModifyThread();
   const { mutateAsync: untrash } = useUntrashThread();
   const notices = useNotices();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   useEffect(() => {
     async function undo(action: UndoAction) {
@@ -30,9 +27,11 @@ export function MailNotices() {
       }
     }
     return onUndoableAction((title, action) => {
-      if (!title.startsWith("Archived") && !title.includes(" to Trash")) return;
+      const archived = title.startsWith("Archived");
+      if (!archived && !title.includes(" to Trash")) return;
+      const count = action.kind === "batch" ? action.actions.length : 1;
       showNotice({
-        title,
+        title: `${count === 1 ? "Conversation" : `${count} conversations`} ${archived ? "archived" : "trashed"}`,
         tone: "success",
         timeout: 6000,
         action: {
@@ -52,27 +51,50 @@ export function MailNotices() {
   return (
     <View
       pointerEvents="box-none"
-      style={{ position: "absolute", top: insets.top + 52, left: 0, right: 0, gap: 6 }}
+      style={[styles.notices, { bottom: insets.bottom + barHeight(false) + 20 }]}
     >
       {notices.map((notice) => (
-        <Toast
+        <Pressable
           key={notice.id}
-          text={notice.body ? `${notice.title} · ${notice.body}` : notice.title}
-          icon={ICON[notice.tone]}
+          accessibilityLiveRegion="polite"
           onPress={notice.close}
-          action={
-            notice.action
-              ? {
-                  label: notice.action.label,
-                  run: () => {
-                    notice.action?.run();
-                    notice.close();
-                  },
-                }
-              : undefined
-          }
-        />
+          style={[
+            styles.notice,
+            { backgroundColor: theme.colors.surfaceRaised, borderColor: theme.colors.border },
+          ]}
+        >
+          <Text size="md" numberOfLines={2} style={{ flex: 1 }}>
+            {notice.body ? `${notice.title} · ${notice.body}` : notice.title}
+          </Text>
+          {notice.action ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() => {
+                notice.action?.run();
+                notice.close();
+              }}
+            >
+              <Text size="lg" weight="semibold">
+                {notice.action.label}
+              </Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
       ))}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  notices: { position: "absolute", left: 16, right: 16, gap: 8 },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    borderCurve: "continuous",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+});

@@ -179,6 +179,21 @@ export function hasLabels(account: MailAccount | undefined, labels: MailLabel[])
   );
 }
 
+/** Where a conversation can move to, or the labels (Outlook's categories) it can carry. */
+export function labelChoices(
+  kind: LabelPicker,
+  account: MailAccount | undefined,
+  labels: MailLabel[],
+) {
+  const places = mailPlaces(account, labels);
+  if (kind === "move")
+    return [
+      ...places.system.filter(({ id }) => id === "INBOX" || id === "ARCHIVE"),
+      ...places.folders.filter(({ label }) => isAssignableLabel(label)),
+    ];
+  return capabilitiesOf(account).foldersAndCategories ? places.categories : places.folders;
+}
+
 export function LabelSheet({
   kind,
   account,
@@ -195,16 +210,7 @@ export function LabelSheet({
   onChange: (kind: LabelPicker, id: string) => void;
 }) {
   const caps = capabilitiesOf(account);
-  const places = mailPlaces(account, labels);
-  const choices =
-    kind === "move"
-      ? [
-          ...places.system.filter(({ id }) => id === "INBOX" || id === "ARCHIVE"),
-          ...places.folders.filter(({ label }) => isAssignableLabel(label)),
-        ]
-      : caps.foldersAndCategories
-        ? places.categories
-        : places.folders;
+  const choices = kind ? labelChoices(kind, account, labels) : [];
   return (
     <MailSheet
       title={kind === "move" ? "Move to" : caps.foldersAndCategories ? "Categories" : "Labels"}

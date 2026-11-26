@@ -224,8 +224,8 @@ export function attachedContext(
 
 /**
  * The mail in the link Otter Mail for iPhone opens Otter Agents with to start a chat about it
- * (Send to agent): `<scheme>://new?mail=<json>&mail=<json>`, each a pointer as its
- * `MailContext.swift` writes one. Empty for any other link.
+ * (Send to agent): `<scheme>://new?mail=<json>&mail=<json>`, each a pointer as
+ * `apps/mail-mobile/src/mail/send-to-agent.ts` writes one. Empty for any other link.
  */
 export function mailOfLink(link: string): AgentContext["conversations"] {
   if (!URL.canParse(link)) return [];

@@ -19,6 +19,11 @@ const pan = Gesture.Pan;
 
 type SwipeAction = { title: string; icon: IconName; run: () => void };
 
+function writersText(names: string[]): string {
+  const writers = [...new Set(names)];
+  return (writers.length > 3 ? [writers[0], "…", ...writers.slice(-2)] : writers).join(", ");
+}
+
 export function MailRow({
   message,
   account,
@@ -57,11 +62,9 @@ export function MailRow({
   const from = draft
     ? "Draft"
     : senders && senders.length > 1
-      ? [
-          ...new Set(
-            senders.map(({ name, email }) => (mine(email) ? "me" : senderFirstName(name, email))),
-          ),
-        ].join(", ")
+      ? writersText(
+          senders.map(({ name, email }) => (mine(email) ? "me" : senderFirstName(name, email))),
+        )
       : mine(lastSender.email)
         ? "me"
         : senderLabel(lastSender.name, lastSender.email);

@@ -2,6 +2,7 @@ import { startSyncedPreferences } from "@otter/client/preferences";
 import { useExternalMailChanges, useWriteFailureToasts } from "@otter/client/mail/hooks";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { useTheme } from "@otter/ui-native/theme";
+import * as Sentry from "@sentry/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -19,7 +20,10 @@ export { ErrorBoundary } from "expo-router";
 
 const queries = new QueryClient();
 
-export default function RootLayout() {
+// What was touched, as breadcrumbs for error reports.
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   const theme = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
@@ -60,7 +64,7 @@ function MailStack() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="mail/[account]/[label]/index" options={{ headerShown: false }} />
         <Stack.Screen name="mail/[account]/[label]/[thread]" />
-        <Stack.Screen name="search" options={{ presentation: "modal", title: "Search" }} />
+        <Stack.Screen name="search" options={{ presentation: "modal", headerShown: false }} />
         <Stack.Screen name="compose" options={{ presentation: "modal", title: "New message" }} />
         <Stack.Screen name="settings" options={{ presentation: "modal", headerShown: false }} />
       </Stack>

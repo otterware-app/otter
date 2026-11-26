@@ -50,6 +50,15 @@ const config: ExpoConfig = {
       { photosPermission: false, cameraPermission: false, microphonePermission: false },
     ],
     "expo-status-bar",
+    // Release builds upload their source maps and dSYMs (scripts/release-ios.ts); others never do.
+    [
+      "@sentry/react-native/expo",
+      {
+        organization: "otterware-app",
+        project: "otter-mail-ios",
+        disableAutoUpload: !process.env.SENTRY_AUTH_TOKEN,
+      },
+    ],
   ],
 };
 

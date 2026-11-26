@@ -13,6 +13,7 @@ import { SettingsButton, SettingsRow, SettingsSection } from "@otter/ui-native/c
 import { useState } from "react";
 import { Alert } from "react-native";
 
+import { GmailMark, MicrosoftMark, ProviderMark } from "../settings/provider-mark.tsx";
 import { ImapForm } from "./imap-form.tsx";
 
 function showError(title: string, error: unknown) {
@@ -81,7 +82,7 @@ export function MailboxSettingsSection() {
       setImapAccount(null);
     };
     return (
-      <SettingsSection title={`Sign in to ${imapAccount.email}`}>
+      <SettingsSection title={`Sign in to ${imapAccount.email}`} headline>
         <SettingsField placeholder="Password" value={password} onChangeText={setPassword} secret />
         <SettingsButton
           title={reconnect.isPending ? "Checking…" : "Sign in"}
@@ -105,11 +106,11 @@ export function MailboxSettingsSection() {
   return (
     <>
       {accounts?.length ? (
-        <SettingsSection title="Mailboxes">
+        <SettingsSection title="Mailboxes" headline>
           {accounts.map((account) => (
             <SettingsRow
               key={account.id}
-              icon="envelope"
+              icon={<ProviderMark account={account} />}
               title={getAccountDisplayName(account)}
               value={account.signedOut ? "Sign in again" : account.email}
               chevron={false}
@@ -118,12 +119,26 @@ export function MailboxSettingsSection() {
           ))}
         </SettingsSection>
       ) : null}
-      <SettingsSection title="Add mailbox">
-        <SettingsButton title="Gmail" disabled={busy} onPress={() => oauth("gmail")} />
+      <SettingsSection title="Add mailbox" headline>
+        <SettingsRow
+          icon={<GmailMark />}
+          title="Gmail"
+          chevron={false}
+          onPress={busy ? undefined : () => oauth("gmail")}
+        />
         {providers?.outlook ? (
-          <SettingsButton title="Outlook" disabled={busy} onPress={() => oauth("outlook")} />
+          <SettingsRow
+            icon={<MicrosoftMark />}
+            title="Outlook"
+            chevron={false}
+            onPress={busy ? undefined : () => oauth("outlook")}
+          />
         ) : null}
-        <SettingsButton title="IMAP" disabled={busy} onPress={() => setAddingImap(true)} />
+        <SettingsRow
+          icon="envelope.badge"
+          title="IMAP"
+          onPress={busy ? undefined : () => setAddingImap(true)}
+        />
         {busy ? (
           <SettingsButton title="Cancel sign-in" onPress={() => void mailApi.cancelAddAccount()} />
         ) : null}

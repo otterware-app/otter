@@ -5,7 +5,8 @@
  * scripted agents and their chats, so the app runs with no Google, Microsoft or Otter account,
  * no agent and no network. Their state is a file in the app's own files, so it changes as the app
  * works.
- * Development only: both shells import this lazily, behind their dev switch.
+ * Development, and Otter Mail for iPhone's demo mailbox: the shells import this lazily, behind
+ * their dev switch (the iPhone's demo, `@otter/mobile/demo`).
  */
 import type { Platform } from "../platform.ts";
 import { SESSION_SECRET } from "../services/otter-account.ts";

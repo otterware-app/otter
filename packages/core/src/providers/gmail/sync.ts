@@ -337,8 +337,20 @@ async function refreshMailbox(accountId: string, ctx: SyncContext): Promise<void
     if (remove.length) ops.push({ kind: "labelsRemoved", id, labelIds: remove });
     if (ops.length) changes.push(ops);
   }
-  await applyChanges(accountId, changes, ctx);
-  if (changes.length > 0) ctx.bumpRevision();
+  // Gmail's counts were read before this listing: the cache's labels decide them.
+  await applyChanges(accountId, changes, ctx, { counted: false });
+  if (changes.length > 0) {
+    const touched = new Set<string>();
+    for (const ops of changes) {
+      for (const op of ops) {
+        for (const label of cached.get(op.id) ?? []) touched.add(label);
+        if (op.kind !== "deleted") for (const label of op.labelIds) touched.add(label);
+      }
+    }
+    ctx.assertActive();
+    store.recountLabels(accountId, [...touched]);
+    ctx.bumpRevision();
+  }
   logger.info("mail-sync", `${changes.length} messages changed comparing ${accountId}`);
 
   const missing = all.filter((id) => !cached.has(id));
@@ -498,14 +510,18 @@ async function incrementalSync(
   // earlier run missed it, or a backfill hasn't got to it): both fetched with
   // current labels. A replay only needs what isn't cached; the rest just got
   // its changes.
-  let ids = [...new Set([...addedIds, ...unknownIds])];
-  if (replay) ids = store.filterUnknownIds(accountId, ids);
-  let added: MessageSummary[] = [];
-  if (ids.length > 0) {
-    const fetched = await fetchAndStore(accountId, ids, ctx, "new");
-    added = fetched.filter((m) => addedIds.has(m.id));
-    ctx.update({ synced: fetched.length });
+  // Only new mail moves the counts: the rest is older mail Gmail's counts already have.
+  let fresh = [...addedIds];
+  let older = unknownIds.filter((id) => !addedIds.has(id));
+  if (replay) {
+    fresh = store.filterUnknownIds(accountId, fresh);
+    older = store.filterUnknownIds(accountId, older);
   }
+  const ids = [...fresh, ...older];
+  let added: MessageSummary[] = [];
+  if (fresh.length > 0) added = await fetchAndStore(accountId, fresh, ctx, "new");
+  if (older.length > 0) await fetchAndStore(accountId, older, ctx, "uncached");
+  if (ids.length > 0) ctx.update({ synced: ids.length });
 
   const changed = byMessage.size > 0 || ids.length > 0;
   ctx.assertActive();

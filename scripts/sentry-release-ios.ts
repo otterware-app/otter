@@ -18,7 +18,7 @@ function iosApp(app: string): IosApp {
   return app as IosApp;
 }
 
-// The name the app reports under (ErrorReports.swift, apps/agents-mobile/src/error-reports.ts):
+// The name the app reports under (each app's src/error-reports.ts):
 // its version and build number.
 export function iosSentryRelease(app: IosApp, version: string, build: string): string {
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`"${version}" isn't a version (x.y.z).`);

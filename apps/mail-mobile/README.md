@@ -1,12 +1,18 @@
-# Otter Mail for iPhone (Expo)
+# Otter Mail for iPhone
 
 The Expo app uses the same mail store, sync and query hooks as the Mac and web apps. Its fake
 mailboxes cover folders, scrolling and pagination, conversations, search, composing and
-replying. See the [migration plan](../../docs/expo-migration.md) for work before cutover.
+replying. What is still unverified on a phone is in the
+[migration plan](../../docs/expo-migration.md#where-we-are).
 
 ```sh
 pnpm dev:mobile:mail:fake
 ```
+
+Development and TestFlight builds also offer the same made-up mail on the welcome screen, as
+**Try the demo mailbox** (`@otter/mobile/demo`): a flag read before core starts, which opens
+core's fake in its own home and Keychain service and reloads the app. Settings → Account →
+**Sign in with Google** leaves it. The demo never sends error reports.
 
 The app runs under `dev.otterware.mail.dev`, with Metro on port 8099. Expo prebuild generates
 `ios/` from `app.config.ts`.
@@ -34,6 +40,18 @@ this iPhone until you choose **Save to Drafts** or send, and unsent drafts can b
 from Drafts.
 
 To regenerate the notices for Settings → Open-source licenses, run `pnpm licenses:mobile:mail`.
+
+## Error reports
+
+Release builds report to Sentry (`otter-mail-ios`, `SENTRY_DSN.mail` in
+`packages/shared/src/error-reports.ts`) as the desktop and web apps do (docs/error-reports.md):
+crashes, what core logs as an error, traces and what was touched (never a screenshot or the view
+hierarchy: they show mail), from the Otter account (or the install's report id), while Settings →
+Support → **Send error reports** is on; the Swift install's choice carries over. `src/error-reports.ts`
+starts it before core; `EXPO_PUBLIC_OTTER_ERROR_REPORTS=1` makes a development build report
+too. `metro.config.cjs` gives the bundle the SDK's `@sentry/core` for `@otter/shared` as well, so
+core's reports reach its client. The release uploads the source maps and dSYMs and makes the
+Sentry release (`otter-mail-ios@<version>+<build>`, `scripts/sentry-release-ios.ts`).
 
 ## Verified background notifications
 

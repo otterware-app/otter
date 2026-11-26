@@ -101,6 +101,19 @@ it("keeps a message's Reply-To with its detail", () => {
   expect(store.getMessageDetail("me", "asked")?.replyTo).toBeUndefined();
 });
 
+it("takes a summary's attachments until the message is downloaded", () => {
+  const attached = () => store.getMessageDetail("me", "photos")?.hasAttachments;
+  const summary = { ...row("photos", "trip", 500, ["INBOX"]), hasAttachments: true };
+  store.upsertMessages("me", [summary]);
+  expect(store.getThreadMessages("me", "trip")[0].hasAttachments).toBe(true);
+  store.upsertMessages("me", [{ ...summary, hasAttachments: false }]);
+  expect(store.getThreadMessages("me", "trip")[0].hasAttachments).toBe(false);
+  const detail = { ...summary, hasAttachments: false, bodyHtml: null, bodyText: "Hi" };
+  store.upsertMessageDetail("me", { ...detail, attachments: [] });
+  store.upsertMessages("me", [summary]);
+  expect(attached()).toBe(false);
+});
+
 it("reads details cached before Reply-To was kept again", async () => {
   database.close();
   await open((db) => {

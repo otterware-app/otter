@@ -2,9 +2,8 @@ import Foundation
 import Security
 
 /**
- * Generic passwords under the app's service, as the Swift apps keep them
- * (apps/ios-agents' and apps/ios' Keychain.swift): an item they wrote is found here under the
- * same name.
+ * Generic passwords under the app's service, as the apps' Swift builds kept them: an item an
+ * install from before Expo wrote is found here under the same name.
  */
 enum Keychain {
   struct Failure: LocalizedError {

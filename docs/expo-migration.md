@@ -1,12 +1,25 @@
 # Moving the iPhone apps to Expo
 
-Otter Mail and Otter Agents for iPhone are being rebuilt on Expo (React Native), so they run
-the same TypeScript as the Mac, Linux and web apps instead of a Swift port of it. Checked
+Otter Mail and Otter Agents for iPhone were rebuilt on Expo (React Native), so they run the
+same TypeScript as the Mac, Linux and web apps instead of a Swift port of it. Both now ship
+from Expo, and both Swift apps are deleted. The plan below is kept as it was written. Checked
 against the code and against Expo SDK 58 (October 2026: React Native 0.88, React 19.3, Hermes
 V1, built for iOS 27). What is marked "verify" was not confirmed and belongs to a spike in
 phase 0. iPhone only: there is no Android app, and nothing here is shaped for one.
 
 ## Where we are
+
+Otter Mail for iPhone is the Expo app `apps/mail-mobile`. The Swift app (`apps/ios`) is
+deleted, with `scripts/dev-ios.ts` and `scripts/export-ios-resources.ts`. Mail keeps its App
+Store record and bundle IDs (`dev.otterware.mail`, `dev.otterware.mail.notifications`), and
+the Release workflow builds it with `scripts/release-ios.ts`, as it builds Otter Agents.
+
+Still unverified for Mail, on a signed build on a phone:
+
+- live APNs delivery, enriched by the notification extension;
+- a locked phone, and the first unlock after a restart;
+- the Swift install's Keychain items, read after a signed upgrade;
+- background refresh (`expo-background-task`).
 
 The Expo Agents app uses the shared account and agent code for Chats, Scheduled and
 Settings. Swift Google sign-in and picture processing live in `packages/mobile/ios`.
@@ -39,12 +52,19 @@ replays pending changes with their original exchange IDs and downloads the curre
 Check these on a signed upgrade. On a development install with its own identity, connect
 from the existing gateway's settings to keep its chats.
 
-The Otter Mail draft builds the Expo app and notification service under the existing App
-Store identity. The production signing settings use the existing app and extension profiles.
-The simulator comparison covers the Swift and Expo inbox, reader, and reply sheet in light
-and dark. The Expo branch adds native Photos and Translation, on-device draft recovery,
-and background notification setup. The upgrade seeds local Swift appearance, mailbox, notification,
-and language preferences before starting sync.
+The Expo Mail app and its notification service build under the existing App Store identity,
+signed with the existing app and extension profiles. Before the cutover, a simulator
+comparison covered the Swift and Expo inbox, reader, and reply sheet in light and dark. The
+Expo app added native Photos and Translation, on-device draft recovery, and background
+notification setup. On a Swift install, its first launch seeds the Swift app's appearance,
+mailbox, notification and language preferences before starting sync.
+
+The in-place internal TestFlight update to 0.8.35 (202611242208) preserved the existing
+mailboxes and drafts on an iPhone.
+
+### Performance
+
+<!-- New measurements go here. -->
 
 Three iPhone 18 Pro simulator Release runs scrolled through the 50,000-message Gmail fixture.
 The third ran with the bounded Inbox query, which returned the first page in under 1 ms in
@@ -62,9 +82,6 @@ in first sync, and 41.8 ms max and 6.7 ms p95 in replay. The longest first-sync 
 contained a SQLite message write. A second 71.5 ms window was mostly garbage collection.
 The longer iOS peaks still need on-device profiling.
 
-The in-place internal TestFlight update to 0.8.35 (202611242208) preserved the existing
-mailboxes and drafts on an iPhone. Live push still needs a signed device check.
-
 The fourth simulator run moved passive WAL checkpoints to a separate SQLite connection.
 It reached its first row at 4,821 ms. First sync measured 599 ms max and 10 ms p95. The
 longest SQLite call was a 37 ms read at a different time. The replay measured 63 ms max
@@ -76,29 +93,33 @@ used 30 ms of CPU during the longest timer delay and reached 76 ms of CPU in a s
 interval. A synchronous SQLite write took 119 ms. The 200-change replay peaked at 67 ms
 with 42 ms p95. The 50 ms maximum remains open.
 
-|                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`, deleted) |
-| ----------------- | ----------------------- | ----------------------------------------- |
-| Swift, app        | about 13,500 lines      | about 18,000 lines                        |
-| Swift, tests      | about 2,200             | about 3,000                               |
-| Ports TypeScript  | about 8,500 lines       | about 8,000 lines                         |
-| Swift packages    | Sentry                  | none                                      |
-| Extension targets | notification service    | notification service                      |
+## Where we started
 
-About half of the Swift is a second implementation of code that already exists in TypeScript:
+The Swift apps the move replaced:
 
-- Otter Mail's `Gmail/`, `Outlook/`, `Imap/`, `Mail/` and `Account/` are `packages/core`'s
+|                   | Otter Mail (`apps/ios`, deleted) | Otter Agents (`apps/ios-agents`, deleted) |
+| ----------------- | -------------------------------- | ----------------------------------------- |
+| Swift, app        | about 13,500 lines               | about 18,000 lines                        |
+| Swift, tests      | about 2,200                      | about 3,000                               |
+| Ports TypeScript  | about 8,500 lines                | about 8,000 lines                         |
+| Swift packages    | Sentry                           | none                                      |
+| Extension targets | notification service             | notification service                      |
+
+About half of the Swift was a second implementation of code that already existed in TypeScript:
+
+- Otter Mail's `Gmail/`, `Outlook/`, `Imap/`, `Mail/` and `Account/` were `packages/core`'s
   providers, protocols, sync, store, relay account and preferences, written again. Core keeps
-  the whole mailbox in SQLite with full-text search; the phone keeps the newest 400 threads in
-  JSON.
+  the whole mailbox in SQLite with full-text search; the Swift app kept the newest 400 threads
+  in JSON.
 - Otter Agents' `Clients/` (OpenClaw, Hermes, varys), `Schedules.swift`, `AgentSync.swift`,
-  `AgentEntries.swift` and `ChatStore.swift` are the extensions' `./core` halves, core's
+  `AgentEntries.swift` and `ChatStore.swift` were the extensions' `./core` halves, core's
   `agent-sync.ts`, contracts' `applyMutation` and `@otter/client`'s `chat-store.ts`, each with a
   "change both together" rule.
 - `VerificationCode.swift`, `Scrubber.swift`, `ScheduleText.swift`, `ChatShelves.swift` and
-  `MailContext.swift` are ports of files in `packages/shared` and `apps/web/src/main/agent`.
+  `MailContext.swift` were ports of files in `packages/shared` and `apps/web/src/main/agent`.
 
-The iPhone column of `docs/features.md` is mostly a list of what the port hasn't caught up on:
-invitations, sender photos, snooze, send later, undo send, label editing, views, themes.
+The iPhone column of `docs/features.md` was mostly a list of what the port hadn't caught up
+on: invitations, sender photos, snooze, send later, undo send, label editing, views, themes.
 
 Core was built for this. It has no `node:` imports, no DOM and no `Buffer`; everything that
 differs by host goes through `Platform` (`packages/core/src/platform.ts`), and it already runs
@@ -384,19 +405,22 @@ leaving, deliveries, forks.
 
 ### 2. Otter Mail
 
-1. The rest of the host: the socket, Google and Microsoft sign-in, push registration, the
+Done except the phone checks of 4 (see [Where we are](#where-we-are)) and the parity gaps of 5.
+
+1. Done. The rest of the host: the socket, Google and Microsoft sign-in, push registration, the
    extension's configuration, background refresh (`expo-background-task`), local alerts,
    Translation.
-2. The mail logic into `@otter/client`: `mail/api.ts`, `mail/hooks.ts`, the helpers, and the
+2. Done. The mail logic into `@otter/client`: `mail/api.ts`, `mail/hooks.ts`, the helpers, and the
    reply, forward and day-grouping code from `message-reader.tsx` and `message-list.tsx`
-   (done: `mail/reply.ts`, `mail/rows.ts`, `mail/format.ts`).
-3. Screens: welcome; the list (rows, swipes, days, selection); the bar, places and the mailbox
+   (`mail/reply.ts`, `mail/rows.ts`, `mail/format.ts`).
+3. Done. Screens: welcome; the list (rows, swipes, days, selection); the bar, places and the mailbox
    switcher; the reader; compose; search (core's full-text search and the providers'); settings
    and its panes; Send to agent, with the same link Otter Agents reads.
-4. The extension, verified on a phone as `apps/mail-mobile/README.md` lists: live APNs, a locked
-   phone, revocation, the first unlock after a restart.
-5. Parity is the iPhone column of `docs/features.md`. TestFlight under `dev.otterware.mail`;
-   `apps/ios`, `scripts/dev-ios.ts` and `scripts/export-ios-resources.ts` are deleted.
+4. Open. The extension, verified on a phone as `apps/mail-mobile/README.md` lists: live APNs, a
+   locked phone, revocation, the first unlock after a restart.
+5. Parity is the iPhone column of `docs/features.md`; the gaps left are its "Gaps worth
+   closing". Done: TestFlight under `dev.otterware.mail`; `apps/ios`, `scripts/dev-ios.ts` and
+   `scripts/export-ios-resources.ts` are deleted.
 
 ### 3. What the phone gets for the screens alone
 
@@ -410,7 +434,16 @@ closing".
 The Expo Agents release uses the existing `dev.otterware.agents` App Store record.
 Its development builds use `dev.otterware.agents.dev`. The signed TestFlight upgrade,
 production push delivery, and phone checks for Talk and the live browser are still open.
-Otter Mail will keep its own App Store record when it moves to Expo.
+
+Otter Mail kept its App Store record ("Otter Mail: Calm Email", `dev.otterware.mail`, its
+extension `dev.otterware.mail.notifications`) and its version line and `ios-vX.Y.Z` tags, so
+the Expo build installs in place over the Swift one. Its development builds use
+`dev.otterware.mail.dev`. Mail reads what the Swift install left: before core starts, the
+first launch imports the Otter session, the mailboxes' metadata, the preferences and the
+on-device draft recovery copies, and resumes Gmail, Outlook and IMAP from the shared Keychain
+items the extension also reads. Core then rebuilds the mail cache from the providers. Reading
+those Keychain items after a signed upgrade is still to check (see
+[Where we are](#where-we-are)).
 
 Otter Agents' Keychain items keep their service (`dev.otterware.agents`) and names, which core's
 match (`otter-session`, `agent:<id>:<name>`), but not all of their values (checked in phase 0):
@@ -453,6 +486,8 @@ agent makes a new device key and pairs again.
    `packages/mobile`.
 6. **A clean end state.** Each step refactors what it touches: logic moves to where both apps
    import it, and what it replaces is deleted in the same change.
+7. **iOS 27 and later.** Both Expo apps need iOS 27, as Expo SDK 58 is built for it. The Swift
+   Otter Mail ran on iOS 26: an iPhone still on 26 keeps 0.8.36 and gets no later version.
 
 ## References
 

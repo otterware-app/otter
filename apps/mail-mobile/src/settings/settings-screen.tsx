@@ -3,23 +3,30 @@ import {
   setAdvanceDirection,
   type AdvanceDirection,
 } from "@otter/client/mail/advance-direction";
+import { ipc } from "@otter/client/bridge";
 import { mailApi, type NotificationsMode } from "@otter/client/mail/api";
 import { useOtterAccount } from "@otter/client/otter-account";
 import { setSyncedPreference } from "@otter/client/preferences";
+import type { ErrorReportsConfig } from "@otter/core";
+import { demo, setDemo } from "@otter/mobile/demo";
 import { Avatar } from "@otter/ui-native/components/avatar";
 import {
+  SettingsFooterText,
   SettingsPage,
   SettingsRow,
   SettingsSection,
   SettingsSwitchRow,
 } from "@otter/ui-native/components/settings";
 import { Text } from "@otter/ui-native/components/text";
+import { useTheme } from "@otter/ui-native/theme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
+import { Image } from "expo-image";
 import { requestPermissionsAsync } from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
-import { ActionSheetIOS, View } from "react-native";
+import { View } from "react-native";
 
+import otterMark from "../account/otter-mark.png";
 import { mailFailure } from "../mail/mail-actions.tsx";
 import { useMailboxes } from "../mail/mailboxes.ts";
 import {
@@ -29,7 +36,9 @@ import {
   useUpdateTranslationSettings,
 } from "../mail/translation.ts";
 import { fake } from "../core.ts";
+import { errorReportsAvailable } from "../error-reports.ts";
 import { mailSettingsKey } from "../notifications/use-mail-notifications.ts";
+import { PickerRow } from "./picker-row.tsx";
 import { setFullWidthMessages, useFullWidthMessages, usePreference } from "./preferences.ts";
 
 const advance: Record<AdvanceDirection, string> = {
@@ -46,25 +55,11 @@ const notifications: Record<NotificationsMode, string> = {
 
 const appearances = { system: "System", light: "Light", dark: "Dark" };
 
-function picker<T extends string>(
-  title: string,
-  choices: Record<T, string>,
-  run: (choice: T) => void,
-) {
-  const keys = Object.keys(choices) as T[];
-  const options = keys.map((key) => choices[key]);
-  ActionSheetIOS.showActionSheetWithOptions(
-    { title, options: [...options, "Cancel"], cancelButtonIndex: options.length },
-    (index) => {
-      if (index < options.length) run(keys[index]);
-    },
-  );
-}
-
 export function SettingsScreen() {
   const { mailboxes } = useMailboxes();
   const otter = useOtterAccount();
   const router = useRouter();
+  const theme = useTheme();
   const queries = useQueryClient();
   const themeSource = usePreference("otter:theme-source");
   const grouped = usePreference("otter:group-messages-by-day") !== "false";
@@ -90,11 +85,26 @@ export function SettingsScreen() {
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button
           icon="xmark"
-          accessibilityLabel="Close settings"
+          tintColor={theme.colors.primary}
+          accessibilityLabel="Close"
           onPress={() => router.back()}
         />
       </Stack.Toolbar>
-      {name ? (
+      {demo ? (
+        <View style={{ alignItems: "center", paddingVertical: 15, gap: 5 }}>
+          <Image
+            source={otterMark}
+            accessible={false}
+            style={{ width: 58, height: 58, borderRadius: 29 }}
+          />
+          <Text size="xl" weight="semibold">
+            Demo mailbox
+          </Text>
+          <Text color="mutedForeground" style={{ textAlign: "center" }}>
+            Pretend mail, to try Otter Mail. Nothing here reaches Google.
+          </Text>
+        </View>
+      ) : name ? (
         <View style={{ alignItems: "center", paddingVertical: 15, gap: 5 }}>
           <Avatar source={otter?.user?.picture} initials={Array.from(name)[0]} size={58} />
           <Text size="xl" weight="semibold">
@@ -103,7 +113,15 @@ export function SettingsScreen() {
           {otter?.user?.email !== name && <Text color="mutedForeground">{otter?.user?.email}</Text>}
         </View>
       ) : null}
-      <SettingsSection title="Mail">
+      <SettingsSection
+        title="Mail"
+        headline
+        footer={
+          fake
+            ? undefined
+            : "Connect background notifications for each mailbox to receive alerts while the app is closed. Alerts are sent only for verified new mail; sender and preview load on this iPhone."
+        }
+      >
         <SettingsRow
           icon="tray.2"
           title="Mailboxes"
@@ -111,13 +129,12 @@ export function SettingsScreen() {
           onPress={() => router.push("/settings/mailboxes")}
         />
         {settings.data && (
-          <SettingsRow
+          <PickerRow
             icon="bell"
             title="Notifications"
-            value={notifications[settings.data.notificationsMode]}
-            onPress={() =>
-              picker("Notifications", notifications, (choice) => update.mutate(choice))
-            }
+            value={settings.data.notificationsMode}
+            options={notifications}
+            onChange={(choice) => update.mutate(choice)}
           />
         )}
         {!fake && (
@@ -126,15 +143,17 @@ export function SettingsScreen() {
             onPress={() => router.push("/settings/mailboxes")}
           />
         )}
-        <SettingsRow
+        <PickerRow
           icon="arrow.turn.down.right"
           title="After archive"
-          value={advance[getAdvanceDirection()]}
-          onPress={() => picker("After archive", advance, setAdvanceDirection)}
+          value={getAdvanceDirection()}
+          options={advance}
+          onChange={setAdvanceDirection}
         />
       </SettingsSection>
       <SettingsSection
         title="Translation"
+        headline
         footer="Mail in other languages is translated on this iPhone, by Apple's Translation."
       >
         <SettingsRow
@@ -150,20 +169,13 @@ export function SettingsScreen() {
           onValueChange={(autoTranslate) => updateTranslation.mutate({ autoTranslate })}
         />
       </SettingsSection>
-      <SettingsSection title="Appearance">
-        <SettingsRow
+      <SettingsSection title="Appearance" headline>
+        <PickerRow
           icon="circle.lefthalf.filled"
           title="Color scheme"
-          value={
-            themeSource === "light" || themeSource === "dark"
-              ? appearances[themeSource]
-              : appearances.system
-          }
-          onPress={() =>
-            picker("Color scheme", appearances, (next) =>
-              setSyncedPreference("otter:theme-source", next),
-            )
-          }
+          value={themeSource === "light" || themeSource === "dark" ? themeSource : "system"}
+          options={appearances}
+          onChange={(next) => setSyncedPreference("otter:theme-source", next)}
         />
         <SettingsSwitchRow
           title="Full-width messages"
@@ -172,9 +184,10 @@ export function SettingsScreen() {
           onValueChange={setFullWidthMessages}
         />
       </SettingsSection>
-      <SettingsSection title="Message list">
+      <SettingsSection title="Message list" headline>
         <SettingsSwitchRow
           title="Group messages by day"
+          description="Separate messages by day. Tap a day's heading to collapse or expand it."
           value={grouped}
           onValueChange={(value) =>
             setSyncedPreference("otter:group-messages-by-day", String(value))
@@ -182,16 +195,27 @@ export function SettingsScreen() {
         />
         <SettingsSwitchRow
           title="Full-width rows"
+          description="Run each message edge to edge with a line between them, instead of cards."
           value={fullRows}
           onValueChange={(value) => setSyncedPreference("otter:full-width-rows", String(value))}
         />
       </SettingsSection>
-      <SettingsSection title="Account">
-        <SettingsRow
-          icon="person.crop.circle"
-          title="Otter account"
-          onPress={() => router.push("/settings/account")}
-        />
+      {errorReportsAvailable && <SupportSection />}
+      <SettingsSection title="Account" headline>
+        {demo ? (
+          <SettingsRow
+            icon="person.crop.circle.badge.plus"
+            title="Sign in with Google"
+            chevron={false}
+            onPress={() => void setDemo(false)}
+          />
+        ) : (
+          <SettingsRow
+            icon="person.crop.circle"
+            title="Otter account"
+            onPress={() => router.push("/settings/account")}
+          />
+        )}
         <SettingsRow icon="info.circle" title="Version" value={Constants.expoConfig?.version} />
         <SettingsRow
           icon="doc.text"
@@ -200,5 +224,45 @@ export function SettingsScreen() {
         />
       </SettingsSection>
     </SettingsPage>
+  );
+}
+
+function SupportSection() {
+  const queries = useQueryClient();
+  const settings = useQuery({ queryKey: mailSettingsKey, queryFn: mailApi.getSyncSettings });
+  const config = useQuery({
+    queryKey: ["errorReports:config"],
+    queryFn: () => ipc<ErrorReportsConfig>("errorReports:config"),
+  });
+  const update = useMutation({
+    mutationFn: (errorReports: boolean) => mailApi.setSyncSettings({ errorReports }),
+    onSuccess: (data) => queries.setQueryData(mailSettingsKey, data),
+    onError: mailFailure,
+  });
+  if (!settings.data) return null;
+  return (
+    <SettingsSection
+      title="Support"
+      headline
+      footer={
+        <>
+          <SettingsFooterText>
+            When something fails, tell Otterware what broke, where and for whom: your Otter account,
+            the screen you were on and what led to it. Never your mail itself, passwords or sign-in
+            tokens.
+          </SettingsFooterText>
+          {config.data && (
+            <SettingsFooterText selectable>Report ID {config.data.reportId}</SettingsFooterText>
+          )}
+        </>
+      }
+    >
+      <SettingsSwitchRow
+        icon="ant"
+        title="Send error reports"
+        value={update.isPending ? update.variables : settings.data.errorReports}
+        onValueChange={(value) => update.mutate(value)}
+      />
+    </SettingsSection>
   );
 }

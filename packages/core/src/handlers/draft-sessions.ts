@@ -96,8 +96,8 @@ export async function mirrorDraft(
       hasAttachments: (content.attachments?.length ?? 0) > 0,
     };
     if (summary.hasAttachments) {
-      mailStore.upsertMessages(accountId, [summary], { counted: true });
       mailStore.invalidateMessageDetail(accountId, res.messageId);
+      mailStore.upsertMessages(accountId, [summary], { counted: true });
     } else {
       mailStore.upsertMessageDetail(
         accountId,

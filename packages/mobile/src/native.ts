@@ -32,8 +32,11 @@ export const native = requireNativeModule<{
     "otter:mailboxes"?: string;
     "otter:addresses"?: string;
     ui?: Record<string, string>;
-    sync?: Partial<Pick<AppSettings, "notificationsMode" | "readLanguages" | "autoTranslate">>;
+    sync?: Partial<
+      Pick<AppSettings, "notificationsMode" | "readLanguages" | "autoTranslate" | "errorReports">
+    >;
   };
+  isAppStoreInstall(): Promise<boolean>;
   existingMailDrafts(userId: string): Promise<string[]>;
   existingMailDraftAttachment(folder: string, filename: string): Promise<string>;
   makeAgentPicture(uri: string, maxLength: number): Promise<string>;
@@ -45,4 +48,6 @@ export const native = requireNativeModule<{
   currentThreadCpuMs(): number;
   launchedAt(): number;
   formatMailDate(timestamp: number): string;
+  shortMailDate(timestamp: number): string;
+  formatByteCount(bytes: number): string;
 }>("OtterMobile");

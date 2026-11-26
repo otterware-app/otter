@@ -365,9 +365,9 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
   const counts: LabelCounts = new Map();
   const before = counted ? countedRows(accountId, messages) : null;
 
-  // hasAttachments from a list response is always false; never clobber a `true`
-  // already established by a full-message fetch. A summary without Cc (Gmail's
-  // lists) keeps the Cc, and the recipients, a detail brought.
+  // A downloaded message's attachments are known: a summary's guess (Gmail's)
+  // doesn't override them. A summary without Cc (Gmail's lists) keeps the Cc,
+  // and the recipients, a detail brought.
   const upsert = d.prepare(`
     INSERT INTO messages
       (accountId, id, threadId, fromName, fromEmail, toField, subject, snippet, date, unread, starred, hasAttachments, labelIds, messageIdHeader, referencesHeader, cc, recipients, deliveredTo)
@@ -383,7 +383,7 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
       unread         = excluded.unread,
       starred        = excluded.starred,
       labelIds       = excluded.labelIds,
-      hasAttachments = CASE WHEN excluded.hasAttachments = 1 THEN 1 ELSE messages.hasAttachments END,
+      hasAttachments = CASE WHEN messages.detailFetched = 1 THEN messages.hasAttachments ELSE excluded.hasAttachments END,
       messageIdHeader  = COALESCE(excluded.messageIdHeader, messages.messageIdHeader),
       referencesHeader = COALESCE(excluded.referencesHeader, messages.referencesHeader),
       cc               = COALESCE(excluded.cc, messages.cc),
@@ -398,6 +398,7 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
   `);
   const labelsById = new Map<string, string[]>();
   for (const m of messages) {
+    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     upsert.run(
       accountId,
       m.id,
@@ -418,7 +419,6 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
       recipientsOf(m.to, m.cc),
       m.deliveredTo?.length ? addressSet(m.deliveredTo) : null,
     );
-    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     labelsById.set(m.id, m.labelIds);
     if (!before) continue;
     const prior = before.get(m.id);
@@ -845,9 +845,7 @@ function refreshThreads(d: SqlDatabase): void {
 const notInBins = (alias: string) =>
   `NOT EXISTS (SELECT 1 FROM message_labels mlx WHERE mlx.accountId = ${alias}.accountId AND mlx.messageId = ${alias}.id AND mlx.labelId IN ('SPAM', 'TRASH'))`;
 
-
 const NOT_SPAM_TRASH = notInBins("m");
-
 
 /** Lower-cased; `sendAs` is the parent's whole Send from list. */
 export type AliasScope = { address: string; sendAs: string[] };

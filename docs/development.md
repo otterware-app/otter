@@ -17,7 +17,7 @@
 | `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.           |
 | `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
 | `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
-| `pnpm dev:mobile:mail`                  | Builds the iPhone app and runs it in the simulator (see `apps/mail-mobile/README.md`).   |
+| `pnpm dev:mobile:mail`                  | Builds Otter Mail and runs it in the simulator (see `apps/mail-mobile/README.md`).       |
 | `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
 | `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
 | `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
@@ -341,15 +341,14 @@ running it in both checkouts. Set `OTTER_BENCH_HOME` to keep its data home betwe
 ## CI
 
 A pull request runs `.github/workflows/ci.yml`: lint, typecheck, tests and a build, and, when
-what they build changed, the Swift jobs (the iPhone apps, the translator), the Hermes plugin's
+what they build changed, the Xcode jobs (the iPhone apps, the translator), the Hermes plugin's
 tests and the desktop app's packaging, unsigned. The lint, typecheck and test jobs are
 `.github/workflows/checks.yml`, which a release runs too.
 
-The iPhone jobs build each app, its extension and its tests, and run no test: a simulator's first
-boot takes most of ten minutes on GitHub's macOS runner (3 cores, 7 GB), and the Mac can't run
-them another way (a Mac Catalyst build lacks an API each app uses; macOS installs the iPhone app
-itself only with a provisioning profile). The tests run on a Mac, in the simulator
-(`apps/mail-mobile/README.md`, `apps/agents-mobile/README.md`).
+The iPhone jobs generate each Expo app's native project and build the app and its notification
+extension for the simulator, unsigned. Otter Agents builds only when its native fingerprint
+changed (`scripts/agents-runtime.ts`); its JavaScript is checked with the rest. Their logic is
+tested where it lives, in vitest.
 
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
 reads, and replays the result while none has changed. So a change reruns only the packages it
@@ -385,7 +384,7 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
 `third-party-licenses.config.json` holds what a package can't say for itself:
 
 - `customNotices`: what didn't come from npm, such as code ported from another project, a font,
-  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `ios`,
+  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `mail-mobile`,
   `agents-mobile`). Give it `generatedNotices` (an SPDX license id, with `copyrights` and a
   `preamble`) or a `noticeFile`. The libraries an Expo app's native code carries that npm doesn't
   name (React Native's prebuilt dependencies, Hermes, SQLite, expo-image's decoders) are here,

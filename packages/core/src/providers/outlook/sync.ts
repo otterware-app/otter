@@ -110,13 +110,14 @@ async function refreshFolders(
   accountId: string,
   mailChanged: boolean,
   ctx: SyncContext,
+  force = false,
 ): Promise<Mailbox> {
   const before = mailboxOf(accountId);
   let state = folderRefresh.get(accountId);
   if (!state) folderRefresh.set(accountId, (state = { at: 0, dirty: true }));
   if (mailChanged) state.dirty = true;
   const age = Date.now() - state.at;
-  if (before && age < FOLDERS_MAX_AGE_MS && !(state.dirty && age > FOLDERS_MIN_GAP_MS)) {
+  if (!force && before && age < FOLDERS_MAX_AGE_MS && !(state.dirty && age > FOLDERS_MIN_GAP_MS)) {
     return before;
   }
   const mailbox = await readMailbox(accountId);
@@ -183,6 +184,11 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
             ? [{ kind: "labelsAdded" as const, id, labelIds: [folder.labelId] }]
             : []),
         ]),
+        { counted: false },
+      );
+      store.recountLabels(
+        accountId,
+        [had, folder.labelId].filter((l) => l !== null),
       );
       ctx.bumpRevision();
     }
@@ -194,7 +200,11 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
 
 export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: mailboxOf(accountId) ? "incremental" : "labels" });
+  const lastRead = folderRefresh.get(accountId)?.at;
   const mailbox = await refreshFolders(accountId, false, ctx);
+  // Counts just read from Outlook already hold what the deltas below move them by: read them
+  // again after, rather than count those changes twice.
+  const readNow = folderRefresh.get(accountId)?.at !== lastRead;
   await relabelFolders(accountId, mailbox, ctx);
   await repairRegularIds(accountId, ctx);
   dropSkippedFolderMail(accountId, ctx);
@@ -213,7 +223,7 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   }
   if (changed) {
     ctx.bumpRevision();
-    await refreshFolders(accountId, true, ctx);
+    await refreshFolders(accountId, true, ctx, readNow);
   }
   await ctx.newMail(added.filter((m) => m.labelIds.includes("INBOX")));
 }
