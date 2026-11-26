@@ -486,6 +486,8 @@ agent makes a new device key and pairs again.
    `packages/mobile`.
 6. **A clean end state.** Each step refactors what it touches: logic moves to where both apps
    import it, and what it replaces is deleted in the same change.
+7. **iOS 27 and later.** Both Expo apps need iOS 27, as Expo SDK 58 is built for it. The Swift
+   Otter Mail ran on iOS 26: an iPhone still on 26 keeps 0.8.36 and gets no later version.
 
 ## References
 

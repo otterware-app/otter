@@ -397,6 +397,7 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
   `);
   const labelsById = new Map<string, string[]>();
   for (const m of messages) {
+    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     upsert.run(
       accountId,
       m.id,
@@ -417,7 +418,6 @@ function writeSummaries(accountId: string, fetched: MessageSummary[], counted = 
       recipientsOf(m.to, m.cc),
       m.deliveredTo?.length ? addressSet(m.deliveredTo) : null,
     );
-    if (m.draftRevision) staleBody.run(accountId, m.id, m.draftRevision);
     labelsById.set(m.id, m.labelIds);
     if (!before) continue;
     const prior = before.get(m.id);
