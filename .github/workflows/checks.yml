@@ -34,7 +34,7 @@ jobs:
             run: |
               vp run fmt:check
               vp run lint
-              node --test scripts/release.test.ts scripts/release-plan.test.ts .github/scripts/release-source.test.cjs
+              node --test scripts/release.test.ts scripts/release-plan.test.ts scripts/agents-runtime.test.ts .github/scripts/release-source.test.cjs
               node scripts/resolve-release-version.ts --bump patch
               node scripts/export-mobile-licenses.ts agents-mobile --check
               node scripts/build-desktop-artifact.ts --help > /dev/null

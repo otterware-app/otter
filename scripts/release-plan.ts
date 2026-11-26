@@ -53,6 +53,8 @@ const AGENTS = [
   "extensions/varys/",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
+  "patches/",
+  "scripts/agents-runtime.ts",
   "scripts/release-ios.ts",
 ];
 
