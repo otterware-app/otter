@@ -594,7 +594,13 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG" "$GITHUB_SHA"
+          # An Otter Agents build records the runtime it runs, which its updates must match
+          # (scripts/agents-runtime.ts).
+          if [[ -n "${OTTER_AGENTS_RUNTIME_VERSION:-}" ]]; then
+            git tag -a "$TAG" -m "Otter Agents runtime: $OTTER_AGENTS_RUNTIME_VERSION" "$GITHUB_SHA"
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+          fi
           git push origin "$TAG"
 
           git fetch origin "$BRANCH"
@@ -632,10 +638,98 @@ jobs:
           node scripts/sentry-release-ios.ts --version "$VERSION" --build "$BUILD"
           --repository "$REPOSITORY" --ref "$GITHUB_SHA"
 
-  agents:
-    name: Otter Agents for iPhone
+  # Otter Agents builds only when its native code changed since its last build, as t3code's
+  # app does: otherwise its JavaScript reaches that build as an update (EAS Update), in a minute
+  # instead of a build's half hour. A run by hand always builds.
+  agents-plan:
+    name: Otter Agents, build or update
     needs: [plan]
     if: needs.plan.outputs.agents == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.runtime.outputs.mode }}
+      runtime: ${{ steps.runtime.outputs.runtime }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Expo workspace
+        uses: ./.github/actions/setup
+
+      - id: runtime
+        name: Compare with the last build
+        run: node scripts/agents-runtime.ts --github-output ${{ github.event_name == 'workflow_dispatch' && '--build' || '' }}
+
+  agents-update:
+    name: Otter Agents update
+    needs: [agents-plan]
+    if: needs.agents-plan.outputs.mode == 'update'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: release-agents
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: write
+    env:
+      OTTER_APP_VARIANT: production
+      OTTER_AGENTS_RELEASE_BUILD: "1"
+      OTTER_AGENTS_RUNTIME_VERSION: ${{ needs.agents-plan.outputs.runtime }}
+      EXPO_NO_DOTENV: "1"
+      EXPO_NO_CLIENT_ENV_VARS: "1"
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Expo workspace
+        uses: ./.github/actions/setup
+
+      # A build that finished while this run waited may run other native code: then this commit
+      # needs a build of its own, and main gets one (it has this commit).
+      - id: still
+        name: Still the last build's runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/agents-runtime.ts --github-output
+          if [[ "$(grep '^mode=' "$GITHUB_OUTPUT" | tail -n 1)" == "mode=build" ]]; then
+            echo "::notice::A build with other native code finished meanwhile: building main instead."
+            gh workflow run release.yml --ref "${{ github.event.repository.default_branch }}" -f apps=agents
+          fi
+
+      # Updates publish one at a time but may arrive out of order: a commit older than the one
+      # this runtime's last update came from would take its place on phones. The tag
+      # ios-agents-update-<runtime> records that commit, before publishing, so a failed push
+      # publishes nothing.
+      - name: Publish the update
+        if: steps.still.outputs.mode == 'update'
+        working-directory: apps/agents-mobile
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          tag="ios-agents-update-$OTTER_AGENTS_RUNTIME_VERSION"
+          if last="$(git rev-parse -q --verify "refs/tags/$tag^{commit}")" &&
+            [[ "$last" != "$GITHUB_SHA" ]] && git merge-base --is-ancestor "$GITHUB_SHA" "$last"; then
+            echo "::notice::$last, a newer commit, already shipped as this runtime's update: not publishing."
+            exit 0
+          fi
+          git tag -f "$tag" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$tag"
+          npx --yes eas-cli@27.11.0 update --channel production --platform ios \
+            --message "$(printf '%s' "$MESSAGE" | head -n 1)" --non-interactive
+
+  agents:
+    name: Otter Agents for iPhone
+    needs: [plan, agents-plan]
+    if: needs.agents-plan.outputs.mode == 'build'
     runs-on: xcode-27
     timeout-minutes: 45
     concurrency:
@@ -645,6 +739,7 @@ jobs:
       contents: write
     env:
       IOS_APP: agents
+      OTTER_AGENTS_RUNTIME_VERSION: ${{ needs.agents-plan.outputs.runtime }}
       VERSION_APP: agents
       VERSION_FILE: apps/agents-mobile/package.json
       PROFILE_SECRET: IOS_AGENTS_PROVISIONING_PROFILE

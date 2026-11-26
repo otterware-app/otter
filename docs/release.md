@@ -210,6 +210,20 @@ The workflow installs the workspace dependencies, generates the production Expo 
 and builds, signs and uploads using `scripts/release-ios.ts --app agents`.
 It tags the commit and records the published version in the package manifest.
 
+Most merges don't build: like t3code's app, Otter Agents takes over-the-air updates
+(`expo-updates`, published with EAS Update to the `production` channel of the `otterware-app`
+Expo project). The "Otter Agents, build or update" job takes the native app's fingerprint
+(`scripts/agents-runtime.ts`; what counts is Expo's fingerprint plus
+`apps/agents-mobile/fingerprint.config.cjs`: the notification extension and `patches/`). The
+newest `ios-agents-v*` tag records the fingerprint its build runs. When they match, the
+"Otter Agents update" job publishes the JavaScript as an update for that build, in about a
+minute; the app downloads it at launch and runs it from the next launch. When they differ (a
+native module, a config plugin, the extension, a dependency with native code), it builds as
+above, with the fingerprint as the build's runtime version. A run by hand always builds. The
+update job signs in to Expo with the `EXPO_TOKEN` secret, a robot token
+(`otter-github-releases`). A build from this Mac (`pnpm release:ios:agents`) records no
+fingerprint and takes no updates; merges keep comparing with the last build the workflow made.
+
 It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
 same secrets) and its own profiles: "Otter Agents App Store" for `dev.otterware.agents` (Push
 Notifications, Communication Notifications, the `group.dev.otterware.agents` App Group), the
