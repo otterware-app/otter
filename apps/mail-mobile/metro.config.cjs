@@ -8,6 +8,9 @@ const config = getSentryExpoConfig(__dirname);
 const sdk = require.resolve("@sentry/react-native");
 const resolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Otter Agents' expo-updates is in the workspace, so Sentry finds its JavaScript, whose native
+  // module this app doesn't link: a release build would throw at launch.
+  if (moduleName === "expo-updates") return { type: "empty" };
   const from =
     moduleName === "@sentry/core" || moduleName.startsWith("@sentry/core/")
       ? { ...context, originModulePath: sdk }
