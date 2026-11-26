@@ -81,6 +81,7 @@ release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
 2. Source maps, so stacks show our TypeScript: an auth token (scope `project:releases`) as
    `SENTRY_AUTH_TOKEN`, and the org slug as `SENTRY_ORG`:
    - GitHub: secret `SENTRY_AUTH_TOKEN`, variable `SENTRY_ORG` (the Release workflow).
+   - The relay's: the Relay source maps workflow, with the same two (see infra/relay's README).
    - The web app's deploy (`site/scripts/build.ts`, in the Release workflow) uses the same two;
      `scripts/upload-sourcemaps.ts` skips the upload without them.
    - The iPhone's dSYMs (`otter-mail-ios`): the Release workflow's iPhone job uploads them with the

@@ -19,8 +19,9 @@ export const SENTRY_DSN = {
   web: "https://7f770b56a78c138844e07a6977df9b43@o4512364656459776.ingest.de.sentry.io/4512364729270352",
   relay:
     "https://e4aca7bd12ed2618a2512e44546ad947@o4512364656459776.ingest.de.sentry.io/4512364730581072",
-  site: "",
-  agents: "",
+  site: "https://45d34e7cd05cb6cc35869f8c60375764@o4512364656459776.ingest.de.sentry.io/4512499033309264",
+  agents:
+    "https://9408f6131b91d434b3aa76802ad9fceb@o4512364656459776.ingest.de.sentry.io/4512499033505872",
 } as const;
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

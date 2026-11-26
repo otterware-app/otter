@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.ts --local-upstream localhost:8787 --var IDENTITY_MODE:legacy --var BETTER_AUTH_URL:http://localhost:8787 --var APP_ORIGIN:http://localhost:5833 --var COOKIE_DOMAIN: --var TUNNEL_ALLOW_PRIVATE:true",
-    "deploy": "wrangler d1 migrations apply otter-mail-relay --remote && wrangler deploy",
+    "build": "rm -rf dist && wrangler deploy --dry-run --outdir dist && sentry-cli sourcemaps inject dist",
+    "deploy": "pnpm run build && wrangler d1 migrations apply otter-mail-relay --remote && wrangler deploy dist/worker.js --no-bundle",
     "smoke": "node scripts/smoke.ts",
     "test": "vp test run",
     "typecheck": "tsc --noEmit",
