@@ -122,3 +122,34 @@ it("counts a label's mail as its list shows it: what's in Trash and Junk only th
   expect(total("TRASH")).toBe(1);
   expect(store.countLabel("me", "category:Later")).toEqual({ total: 1, unread: 1 });
 });
+
+it("moves a thread when its other messages change", () => {
+  const inbox = () => store.getThreadsPage("me", "INBOX", 0, 10).messages.map((m) => m.threadId);
+  expect(inbox()).toEqual(["other", "replied"]);
+  store.upsertMessages("me", [row("sent", "replied", 250, ["SENT"])]);
+  expect(inbox()).toEqual(["replied", "other"]);
+  store.applyLabelChange("me", "sent", ["TRASH"], ["SENT"]);
+  expect(inbox()).toEqual(["other", "replied"]);
+  store.deleteMessage("me", "newer");
+  expect(inbox()).toEqual(["replied"]);
+});
+
+it("lists threads cached before they were indexed", async () => {
+  database.close();
+  await open((db) => {
+    db.exec(`CREATE TABLE messages (
+    accountId TEXT NOT NULL, id TEXT NOT NULL, threadId TEXT NOT NULL,
+    fromName TEXT NOT NULL DEFAULT '', fromEmail TEXT NOT NULL DEFAULT '',
+    toField TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL DEFAULT '',
+    snippet TEXT NOT NULL DEFAULT '', date INTEGER NOT NULL DEFAULT 0,
+    unread INTEGER NOT NULL DEFAULT 0, starred INTEGER NOT NULL DEFAULT 0,
+    hasAttachments INTEGER NOT NULL DEFAULT 0, labelIds TEXT NOT NULL DEFAULT '[]',
+    cc TEXT, bodyHtml TEXT, bodyText TEXT, attachments TEXT,
+    detailFetched INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (accountId, id));
+    CREATE TABLE message_labels (accountId TEXT NOT NULL, messageId TEXT NOT NULL,
+    labelId TEXT NOT NULL, PRIMARY KEY (accountId, messageId, labelId));
+    INSERT INTO messages (accountId, id, threadId, date) VALUES ('me', 'a', 'a', 1), ('me', 'b', 'b', 2);
+    INSERT INTO message_labels VALUES ('me', 'a', 'INBOX'), ('me', 'b', 'INBOX');`);
+  });
+  expect(store.getThreadsPage("me", "INBOX", 0, 10).messages.map((m) => m.id)).toEqual(["b", "a"]);
+});

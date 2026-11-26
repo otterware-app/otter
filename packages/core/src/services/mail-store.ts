@@ -135,6 +135,51 @@ function getDb(): SqlDatabase {
     "CREATE INDEX IF NOT EXISTS idx_messages_undownloaded ON messages (accountId, detailFetched, date DESC);",
   );
 
+  // Each thread's place in every list it's in (`getThreadsPage`), recomputed on the next
+  // read for threads whose messages or labels changed since (`stale_threads`).
+  const threadLabelsExist =
+    handle
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_labels'")
+      .get() !== undefined;
+  handle.exec(`
+    CREATE TABLE IF NOT EXISTS thread_labels (
+      accountId TEXT NOT NULL,
+      threadId  TEXT NOT NULL,
+      labelId   TEXT NOT NULL,
+      sortDate  INTEGER NOT NULL,
+      PRIMARY KEY (accountId, threadId, labelId)
+    );
+    CREATE INDEX IF NOT EXISTS idx_thread_labels_page ON thread_labels (accountId, labelId, sortDate, threadId);
+    CREATE TABLE IF NOT EXISTS stale_threads (accountId TEXT NOT NULL, threadId TEXT NOT NULL);
+    CREATE TRIGGER IF NOT EXISTS threads_stale_mi AFTER INSERT ON messages BEGIN
+      INSERT INTO stale_threads VALUES (new.accountId, new.threadId);
+    END;
+    CREATE TRIGGER IF NOT EXISTS threads_stale_md AFTER DELETE ON messages BEGIN
+      INSERT INTO stale_threads VALUES (old.accountId, old.threadId);
+    END;
+    CREATE TRIGGER IF NOT EXISTS threads_stale_mu AFTER UPDATE OF accountId, threadId, date ON messages
+      WHEN old.accountId IS NOT new.accountId OR old.threadId IS NOT new.threadId OR old.date IS NOT new.date
+    BEGIN
+      INSERT INTO stale_threads VALUES (old.accountId, old.threadId), (new.accountId, new.threadId);
+    END;
+    CREATE TRIGGER IF NOT EXISTS threads_stale_li AFTER INSERT ON message_labels BEGIN
+      INSERT INTO stale_threads
+        SELECT accountId, threadId FROM messages WHERE accountId = new.accountId AND id = new.messageId;
+    END;
+    CREATE TRIGGER IF NOT EXISTS threads_stale_ld AFTER DELETE ON message_labels BEGIN
+      INSERT INTO stale_threads
+        SELECT accountId, threadId FROM messages WHERE accountId = old.accountId AND id = old.messageId;
+    END;
+    CREATE TRIGGER IF NOT EXISTS threads_stale_lu AFTER UPDATE ON message_labels BEGIN
+      INSERT INTO stale_threads
+        SELECT accountId, threadId FROM messages
+         WHERE accountId IN (old.accountId, new.accountId) AND id IN (old.messageId, new.messageId);
+    END;
+  `);
+  if (!threadLabelsExist) {
+    handle.exec("INSERT INTO stale_threads SELECT DISTINCT accountId, threadId FROM messages;");
+  }
+
   const ftsExists =
     handle
       .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'")
@@ -593,39 +638,29 @@ export function applyLabelChange(
   recomputeLabelCounts(accountId, [...new Set([...priorLabelIds, ...newLabelIds])]);
 }
 
+const kept = (listed: boolean, alias: string) => (listed ? `AND ${notInBins(alias)}` : "");
+
 /**
- * One row per thread: `matchedSql` selects the (accountId, threadId) pairs the
- * view includes; rollups (count/unread/starred/labels) and the representative row
- * (the thread's latest message) are computed over every locally-cached message of
- * the thread, so e.g. an Inbox thread counts your sent replies like Gmail does;
- * with `listed`, only those outside Trash and Junk, which views other than those
- * leave out (as Gmail's and Outlook's own conversations do).
- * Outside the Drafts view a draft doesn't move its thread: the thread sorts and
- * dates by its latest other message, as in Gmail.
+ * One row per thread of `pageSql`, a page of (accountId, threadId, sortDate): rollups
+ * (count/unread/starred/labels) and the representative row (the thread's latest message)
+ * are computed over every locally-cached message of the thread, so e.g. an Inbox thread
+ * counts your sent replies like Gmail does; with `listed`, only those outside Trash and
+ * Junk, which views other than those leave out (as Gmail's and Outlook's own conversations do).
  */
-function threadPageQuery(matchedSql: string, draftsView = false, listed = false): string {
-  const kept = (alias: string) => (listed ? `AND ${notInBins(alias)}` : "");
-  const sortDate = draftsView
-    ? "MAX(t.date)"
-    : `COALESCE(MAX(CASE WHEN NOT EXISTS (SELECT 1 FROM message_labels td
-                     WHERE td.accountId = t.accountId AND td.messageId = t.id AND td.labelId = 'DRAFT')
-                   THEN t.date END), MAX(t.date))`;
+function threadPageQuery(pageSql: string, listed: boolean): string {
   return `
-    WITH matched AS (${matchedSql}),
+    WITH page AS (${pageSql}),
     agg AS (
-      SELECT t.accountId AS accountId, t.threadId AS threadId,
+      SELECT page.accountId AS accountId, page.threadId AS threadId, page.sortDate AS sortDate,
              -- Copies of one message (delivered to two of its addresses) count once.
              COUNT(DISTINCT COALESCE(t.messageIdHeader, t.id)) AS threadCount,
              MAX(t.unread) AS threadUnread,
              MAX(t.starred) AS threadStarred,
-             MAX(t.date) AS repDate,
-             ${sortDate} AS sortDate
-        FROM messages t
-        JOIN matched mt ON mt.accountId = t.accountId AND mt.threadId = t.threadId
-       WHERE 1 ${kept("t")}
-       GROUP BY t.accountId, t.threadId
-       ORDER BY sortDate DESC
-       LIMIT ? OFFSET ?
+             MAX(t.date) AS repDate
+        FROM page
+        JOIN messages t ON t.accountId = page.accountId AND t.threadId = page.threadId
+       WHERE 1 ${kept(listed, "t")}
+       GROUP BY page.accountId, page.threadId
     )
     SELECT m.*, agg.sortDate AS sortDate, agg.threadCount AS threadCount,
            agg.threadUnread AS threadUnread,
@@ -635,13 +670,13 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
            (SELECT GROUP_CONCAT(DISTINCT tl.labelId)
               FROM messages tm
               CROSS JOIN message_labels tl ON tl.accountId = tm.accountId AND tl.messageId = tm.id
-             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId ${kept("tm")}) AS threadLabels,
+             WHERE tm.accountId = agg.accountId AND tm.threadId = agg.threadId ${kept(listed, "tm")}) AS threadLabels,
            -- Each sender once, by their latest message (its name, as SQLite takes bare columns
            -- from MAX's row); drafts aren't from anyone yet.
            (SELECT json_group_array(json_object('name', p.name, 'email', p.email) ORDER BY p.last)
               FROM (SELECT MAX(ts.date) AS last, ts.fromName AS name, ts.fromEmail AS email
                       FROM messages ts
-                     WHERE ts.accountId = agg.accountId AND ts.threadId = agg.threadId ${kept("ts")}
+                     WHERE ts.accountId = agg.accountId AND ts.threadId = agg.threadId ${kept(listed, "ts")}
                        AND NOT EXISTS (SELECT 1 FROM message_labels tsd
                                         WHERE tsd.accountId = ts.accountId AND tsd.messageId = ts.id
                                           AND tsd.labelId = 'DRAFT')
@@ -649,10 +684,75 @@ function threadPageQuery(matchedSql: string, draftsView = false, listed = false)
       FROM agg
       JOIN messages m
         ON m.accountId = agg.accountId AND m.threadId = agg.threadId AND m.date = agg.repDate
-       ${kept("m")}
+       ${kept(listed, "m")}
      GROUP BY agg.accountId, agg.threadId
-     ORDER BY agg.sortDate DESC
+     ORDER BY agg.sortDate DESC, agg.threadId DESC
   `;
+}
+
+/**
+ * A page of the threads `matchedSql` selects (accountId, threadId pairs), for
+ * `threadPageQuery`. Outside the Drafts view a draft doesn't move its thread: the thread
+ * sorts and dates by its latest other message, as in Gmail (as `refreshThreads` keeps it).
+ */
+function matchedPage(matchedSql: string, draftsView: boolean, listed: boolean): string {
+  const sortDate = draftsView
+    ? "MAX(t.date)"
+    : `COALESCE(MAX(CASE WHEN NOT EXISTS (SELECT 1 FROM message_labels td
+                     WHERE td.accountId = t.accountId AND td.messageId = t.id AND td.labelId = 'DRAFT')
+                   THEN t.date END), MAX(t.date))`;
+  return `
+    SELECT t.accountId AS accountId, t.threadId AS threadId, ${sortDate} AS sortDate
+      FROM messages t
+      JOIN (${matchedSql}) mt ON mt.accountId = t.accountId AND mt.threadId = t.threadId
+     WHERE 1 ${kept(listed, "t")}
+     GROUP BY t.accountId, t.threadId
+     ORDER BY sortDate DESC, t.threadId DESC
+     LIMIT ? OFFSET ?
+  `;
+}
+
+/**
+ * Brings `thread_labels` up to date for the threads changed since: a row for each label a
+ * thread has a message in (one outside Trash and Junk, but for those two), and one for All
+ * Mail, with the date the list sorts it by, as `matchedPage` computes it.
+ */
+function refreshThreads(d: SqlDatabase): void {
+  if (!d.prepare("SELECT 1 FROM stale_threads LIMIT 1").get()) return;
+  inTransaction(() =>
+    d.exec(`
+      DELETE FROM thread_labels
+       WHERE (accountId, threadId) IN (SELECT accountId, threadId FROM stale_threads);
+      WITH t AS (
+        SELECT m.accountId AS accountId, m.threadId AS threadId, m.id AS id, m.date AS date,
+               EXISTS (SELECT 1 FROM message_labels l
+                        WHERE l.accountId = m.accountId AND l.messageId = m.id AND l.labelId = 'DRAFT') AS draft,
+               NOT ${notInBins("m")} AS binned
+          FROM (SELECT DISTINCT accountId, threadId FROM stale_threads) s
+          CROSS JOIN messages m ON m.accountId = s.accountId AND m.threadId = s.threadId
+      ),
+      dated AS (
+        SELECT id, accountId, threadId, binned,
+               COALESCE(MAX(CASE WHEN NOT draft AND NOT binned THEN date END) OVER thread,
+                        MAX(CASE WHEN NOT binned THEN date END) OVER thread) AS listed,
+               MAX(CASE WHEN NOT binned THEN date END) OVER thread AS drafts,
+               COALESCE(MAX(CASE WHEN NOT draft THEN date END) OVER thread, MAX(date) OVER thread) AS bins
+          FROM t
+        WINDOW thread AS (PARTITION BY accountId, threadId)
+      )
+      INSERT INTO thread_labels (accountId, threadId, labelId, sortDate)
+      SELECT DISTINCT d.accountId, d.threadId, ml.labelId,
+             CASE WHEN ml.labelId IN ('SPAM', 'TRASH') THEN d.bins
+                  WHEN ml.labelId = 'DRAFT' THEN d.drafts
+                  ELSE d.listed END
+        FROM dated d
+        CROSS JOIN message_labels ml ON ml.accountId = d.accountId AND ml.messageId = d.id
+       WHERE (ml.labelId IN ('SPAM', 'TRASH') OR NOT d.binned) AND ml.labelId != '${ALL_MAIL_LABEL_ID}'
+      UNION ALL
+      SELECT DISTINCT accountId, threadId, '${ALL_MAIL_LABEL_ID}', listed FROM dated WHERE listed IS NOT NULL;
+      DELETE FROM stale_threads;
+    `),
+  );
 }
 
 const notInBins = (alias: string) =>
@@ -725,41 +825,34 @@ export function getThreadsPage(
   scope?: MailboxScope,
 ): { messages: MessageSummary[]; hasMore: boolean } {
   const d = getDb();
+  refreshThreads(d);
+  const listed = labelId !== "SPAM" && labelId !== "TRASH";
   const own = scope ? scopeWhere(labelId, scope) : null;
-  const ownSql = own ? `AND ${own.clause}` : "";
-  const ownParams = own?.params ?? [];
-  if (labelId === ALL_MAIL_LABEL_ID) {
-    const rows = d
-      .prepare(
-        threadPageQuery(
-          `
-          SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-            FROM messages m
-           WHERE m.accountId = ? AND ${NOT_SPAM_TRASH} ${ownSql}
-        `,
-          false,
-          true,
-        ),
-      )
-      .all(accountId, ...ownParams, limit + 1, offset) as unknown as ThreadRow[];
-    return { messages: rows.slice(0, limit).map(rowToThreadSummary), hasMore: rows.length > limit };
-  }
-  const exclusion = labelId === "SPAM" || labelId === "TRASH" ? "" : `AND ${NOT_SPAM_TRASH}`;
+  const inLabel =
+    labelId === ALL_MAIL_LABEL_ID
+      ? ""
+      : "AND EXISTS (SELECT 1 FROM message_labels ml WHERE ml.accountId = m.accountId AND ml.messageId = m.id AND ml.labelId = tl.labelId)";
+  // A scoped list keeps the threads with a message of its own there. LIMIT 1 keeps SQLite
+  // (3.53) from making the EXISTS a join, whose OFFSET would count each matching message.
+  const ownSql = own
+    ? `AND EXISTS (SELECT 1 FROM messages m
+                    WHERE m.accountId = tl.accountId AND m.threadId = tl.threadId
+                      ${inLabel} ${kept(listed, "m")} AND ${own.clause} LIMIT 1)`
+    : "";
   const rows = d
     .prepare(
       threadPageQuery(
         `
-        SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-          FROM messages m
-          JOIN message_labels ml
-            ON ml.accountId = m.accountId AND ml.messageId = m.id
-         WHERE m.accountId = ? AND ml.labelId = ? ${exclusion} ${ownSql}
+        SELECT tl.accountId AS accountId, tl.threadId AS threadId, tl.sortDate AS sortDate
+          FROM thread_labels tl
+         WHERE tl.accountId = ? AND tl.labelId = ? ${ownSql}
+         ORDER BY tl.sortDate DESC, tl.threadId DESC
+         LIMIT ? OFFSET ?
       `,
-        labelId === "DRAFT",
-        exclusion !== "",
+        listed,
       ),
     )
-    .all(accountId, labelId, ...ownParams, limit + 1, offset) as unknown as ThreadRow[];
+    .all(accountId, labelId, ...(own?.params ?? []), limit + 1, offset) as unknown as ThreadRow[];
 
   const hasMore = rows.length > limit;
   return { messages: rows.slice(0, limit).map(rowToThreadSummary), hasMore };
@@ -900,11 +993,18 @@ export function getThreadSummaries(accountId: string, threadIds: string[]): Mess
   if (threadIds.length === 0) return [];
   const rows = getDb()
     .prepare(
-      threadPageQuery(`
-        SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-          FROM messages m
-         WHERE m.accountId = ? AND m.threadId IN (SELECT value FROM json_each(?))
-      `),
+      threadPageQuery(
+        matchedPage(
+          `
+          SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
+            FROM messages m
+           WHERE m.accountId = ? AND m.threadId IN (SELECT value FROM json_each(?))
+        `,
+          false,
+          false,
+        ),
+        false,
+      ),
     )
     .all(accountId, JSON.stringify(threadIds), threadIds.length, 0) as unknown as ThreadRow[];
   const byThread = new Map(rows.map((r) => [r.threadId, rowToThreadSummary(r)]));
@@ -1305,17 +1405,21 @@ export function getCombinedThreadsByRules(
   if (rules.length === 0) return { messages: [], hasMore: false };
   const d = getDb();
   const { clause, params } = rulesWhere(rules);
+  const listed = !rules.some((r) => r.allOf.includes("SPAM") || r.allOf.includes("TRASH"));
 
   const rows = d
     .prepare(
       threadPageQuery(
-        `
-        SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
-          FROM messages m
-         WHERE ${clause}
-      `,
-        rules.every((r) => r.allOf.includes("DRAFT")),
-        !rules.some((r) => r.allOf.includes("SPAM") || r.allOf.includes("TRASH")),
+        matchedPage(
+          `
+          SELECT DISTINCT m.accountId AS accountId, m.threadId AS threadId
+            FROM messages m
+           WHERE ${clause}
+        `,
+          rules.every((r) => r.allOf.includes("DRAFT")),
+          listed,
+        ),
+        listed,
       ),
     )
     .all(...params, limit + 1, offset) as unknown as ThreadRow[];
