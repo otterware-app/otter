@@ -42,6 +42,7 @@ const IPHONE = [
   "packages/ui-native/",
   "extensions/translation/core/",
   "extensions/translation/manifest.ts",
+  "extensions/translation/package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "patches/",

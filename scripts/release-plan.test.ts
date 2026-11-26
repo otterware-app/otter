@@ -38,6 +38,7 @@ test("each app ships when what it is built from changed", () => {
   assert.equal(ships("iphone", ["packages/core/src/providers/imap/structures.ts"]), true);
   assert.equal(ships("iphone", ["extensions/translation/core/translation.ts"]), true);
   assert.equal(ships("iphone", ["extensions/translation/ui/index.tsx"]), false);
+  assert.equal(ships("iphone", ["extensions/translation/package.json"]), true);
   assert.equal(ships("iphone", ["extensions/hermes/mobile/mark.tsx"]), false);
   assert.equal(ships("iphone", ["apps/agents-mobile/src/chat/new-from-mail.tsx"]), false);
   assert.equal(ships("iphone", ["patches/postal-mime@4.0.0.patch"]), true);
