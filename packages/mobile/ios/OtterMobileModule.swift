@@ -146,6 +146,7 @@ public class OtterMobileModule: Module {
       }
       sync["readLanguages"] = defaults.stringArray(forKey: "settings.readLanguages")
       sync["autoTranslate"] = defaults.object(forKey: "settings.autoTranslate") as? Bool
+      sync["errorReports"] = defaults.object(forKey: "otter:errorReports") as? Bool
       saved["sync"] = sync
       return saved
     }
@@ -158,8 +159,7 @@ public class OtterMobileModule: Module {
       return try AgentPicture.make(from: data, maxLength: maxLength)
     }
 
-    // Ed25519 for Web Crypto's `subtle` (polyfills.ts), in base64, as OpenClaw's device key in the
-    // Swift app.
+    // Ed25519 for Web Crypto's `subtle` (polyfills.ts), in base64.
     Function("ed25519Generate") { () -> [String: String] in
       let key = Curve25519.Signing.PrivateKey()
       return [
@@ -199,15 +199,33 @@ public class OtterMobileModule: Module {
       return settings
     }
 
-    // When the process started (ms since the epoch), to time a cold start from.
     Function("formatMailDate") { (timestamp: Double) -> String in
       Date(timeIntervalSince1970: timestamp / 1000).formatted(date: .abbreviated, time: .shortened)
+    }
+
+    Function("shortMailDate") { (timestamp: Double) -> String in
+      let date = Date(timeIntervalSince1970: timestamp / 1000)
+      let now = Date.now
+      let calendar = Calendar.current
+      if calendar.isDateInToday(date) { return date.formatted(date: .omitted, time: .shortened) }
+      if let days = calendar.dateComponents([.day], from: date, to: now).day, days < 6 {
+        return date.formatted(.dateTime.weekday(.abbreviated))
+      }
+      if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+        return date.formatted(.dateTime.day().month(.abbreviated))
+      }
+      return date.formatted(date: .numeric, time: .omitted)
+    }
+
+    Function("formatByteCount") { (bytes: Double) -> String in
+      Int64(bytes).formatted(.byteCount(style: .file))
     }
 
     Function("currentThreadCpuMs") { () -> Double in
       Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)) / 1_000_000
     }
 
+    // When the process started (ms since the epoch), to time a cold start from.
     Function("launchedAt") { () -> Double in
       var info = kinfo_proc()
       var size = MemoryLayout<kinfo_proc>.stride

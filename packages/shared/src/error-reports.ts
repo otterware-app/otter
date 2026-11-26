@@ -21,6 +21,7 @@ export const SENTRY_DSN = {
   relay:
     "https://e4aca7bd12ed2618a2512e44546ad947@o4512364656459776.ingest.de.sentry.io/4512364730581072",
   site: "https://45d34e7cd05cb6cc35869f8c60375764@o4512364656459776.ingest.de.sentry.io/4512499033309264",
+  mail: "https://8ab23b52535e531f2b75f22d02dae47c@o4512364656459776.ingest.de.sentry.io/4512364735496272",
   agents:
     "https://9408f6131b91d434b3aa76802ad9fceb@o4512364656459776.ingest.de.sentry.io/4512499033505872",
 } as const;

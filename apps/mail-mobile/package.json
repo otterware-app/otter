@@ -1,6 +1,6 @@
 {
   "name": "@otter/mail-mobile",
-  "version": "0.8.35",
+  "version": "0.8.36",
   "private": true,
   "type": "module",
   "main": "./index.ts",
@@ -12,12 +12,15 @@
   },
   "dependencies": {
     "@bacons/apple-targets": "5.0.0",
+    "@expo/ui": "~58.0.29",
     "@otter/client": "workspace:*",
     "@otter/contracts": "workspace:*",
     "@otter/core": "workspace:*",
     "@otter/extension-translation": "workspace:*",
     "@otter/mobile": "workspace:*",
+    "@otter/shared": "workspace:*",
     "@otter/ui-native": "workspace:*",
+    "@sentry/react-native": "8.28.1",
     "@shopify/flash-list": "2.3.2",
     "@tanstack/react-query": "catalog:",
     "expo": "catalog:",
