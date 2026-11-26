@@ -95,7 +95,7 @@ function createAppWindow(
   key: number,
   bounds: { width: number; height: number; x?: number; y?: number },
   hash = "",
-  hidden = false,
+  { hidden = false, maximized = false } = {},
 ): { win: BrowserWindow; loaded: Promise<void> } {
   const chrome = hostOS.mainWindowOptions();
   const win = new BrowserWindow({
@@ -130,9 +130,10 @@ function createAppWindow(
   win.on("leave-full-screen", sendFullScreen);
   win.webContents.on("did-finish-load", sendFullScreen);
 
-  win.once("ready-to-show", () => {
-    if (!hidden && !win.isVisible()) win.show();
-  });
+  // Shown at once in the theme's background, not after the page's first paint: the window is
+  // there as the app launches, and the page draws into it.
+  if (maximized && !hidden) win.maximize();
+  else if (!hidden) win.show();
   // The last window hides instead of closing: its page follows the agents' chats,
   // which is what notifies about them while the app runs in the background.
   win.on("close", (event) => {
@@ -181,9 +182,8 @@ export async function createMainWindow(hidden = false): Promise<BrowserWindow> {
           ...(frame ? { x: frame.x, y: frame.y } : {}),
         },
         "",
-        hidden,
+        { hidden, maximized: frame?.maximized },
       );
-      if (frame?.maximized && !hidden) win.maximize();
       return { win, loaded };
     });
     await Promise.all(opened.map(({ loaded }) => loaded));
