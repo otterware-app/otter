@@ -41,13 +41,13 @@ from the existing gateway's settings to keep its chats.
 
 Otter Mail remains on Swift. Its Expo migration follows the Agents cutover.
 
-|                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`) |
-| ----------------- | ----------------------- | -------------------------------- |
-| Swift, app        | about 13,500 lines      | about 18,000 lines               |
-| Swift, tests      | about 2,200             | about 3,000                      |
-| Ports TypeScript  | about 8,500 lines       | about 8,000 lines                |
-| Swift packages    | Sentry                  | none                             |
-| Extension targets | notification service    | notification service             |
+|                   | Otter Mail (`apps/ios`) | Otter Agents (`apps/ios-agents`, deleted) |
+| ----------------- | ----------------------- | ----------------------------------------- |
+| Swift, app        | about 13,500 lines      | about 18,000 lines                        |
+| Swift, tests      | about 2,200             | about 3,000                               |
+| Ports TypeScript  | about 8,500 lines       | about 8,000 lines                         |
+| Swift packages    | Sentry                  | none                                      |
+| Extension targets | notification service    | notification service                      |
 
 About half of the Swift is a second implementation of code that already exists in TypeScript:
 
