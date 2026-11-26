@@ -49,7 +49,8 @@ export function startErrorReports(): void {
     // Avoid injecting Sentry into browser tab sessions.
     ipcMode: Sentry.IPCMode.Classic,
     getSessions: () => [],
-    attachScreenshot: true,
+    // A screenshot shows mail; Google's Limited Use rules keep people from reading that.
+    attachScreenshot: false,
     integrations: (defaults) => defaults.filter((integration) => !LEFT_OUT.has(integration.name)),
   });
   gate.set(savedChoice());
