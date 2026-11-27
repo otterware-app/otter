@@ -639,13 +639,14 @@ function DocumentRow({
   );
 }
 
-function useWarm({ id, folderId }: DriveArtifact) {
+function useWarm({ id, folderId, current }: DriveArtifact) {
   const qc = useQueryClient();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return {
     onPointerEnter: () => {
       timer.current = setTimeout(
-        () => void qc.prefetchQuery(previewQuery(id, folderId || undefined, null)),
+        () =>
+          void qc.prefetchQuery(previewQuery(id, folderId || undefined, current?.number ?? null)),
         120,
       );
     },
