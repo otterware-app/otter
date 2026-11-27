@@ -1,0 +1,24 @@
+apps/mail-mobile/src/mail/mail-row.tsx
+  s_d443cfafdeb497::t_12eb5b295455c6 7,101-102,134
+  s_d443cfafdeb497::t_044f4b3ce899d0 53-54
+  s_d443cfafdeb497::t_60ccd172aef3b3 28,41-52,55-70,93-100,103
+  s_d443cfafdeb497::t_a172046fba23a4 104-133
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_d443cfafdeb497::t_ee05c23334f78b 297-304,308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0257548432c33fd96d35f4722993051441ef99ed",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
