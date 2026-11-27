@@ -40,8 +40,9 @@ import { parseDelimited } from "./table";
 const URL_FRESH = 4 * 60_000;
 
 /**
- * A document's preview. Text and tables are kept. Drive's URL for the rest is good for five
- * minutes, enough to open it: reused within four, else fetched again on opening.
+ * A version's preview, the current one's by its number too, so a new version isn't drawn from
+ * the last one's. Text and tables are kept. Drive's URL for the rest is good for five minutes,
+ * enough to open it: reused within four, else fetched again on opening.
  */
 export const previewQuery = (id: string, folderId: string | undefined, version: number | null) =>
   ({
@@ -139,12 +140,15 @@ export function DocumentView({
     retry: false,
   });
   const [version, setVersion] = useState<number | null>(null);
-  const preview = useQuery(previewQuery(id, folderId, version));
+  const current = artifact.data?.current?.number ?? null;
+  const preview = useQuery({
+    ...previewQuery(id, folderId, version ?? current),
+    enabled: artifact.data !== undefined,
+  });
   // An expired URL isn't opened; one already open stays up, though it ages past
   // its freshness (swapping it would reload the video or page, or blank it).
   const fresh = preview.data && "url" in preview.data && preview.isStale ? undefined : preview.data;
   // Kept for the version shown, and the current one it was (a new version replaces it).
-  const current = artifact.data?.current?.number ?? null;
   const [open, setOpen] = useState<{
     version: number | null;
     current: number | null;
