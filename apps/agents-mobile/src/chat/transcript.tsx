@@ -24,7 +24,7 @@ import * as Clipboard from "expo-clipboard";
 import { Button } from "@otter/ui-native/components/button";
 import { useMappingHelper, useRecyclingState } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { memo, use, useEffect, useState } from "react";
+import { memo, use, useEffect, useState, type ReactNode } from "react";
 import { Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -457,6 +457,17 @@ export function AssistantTurn({
   const delivered = deliveryLabel(turn);
   const changes = row.showsChanges ? mergeChatChanges(turn.changes ?? []) : [];
   const time = !live && turn.finishedAt ? clockText(turn.finishedAt) : undefined;
+  const replies = bubbles.map((markdown, index) => (
+    <ReplyText
+      key={getMappingKey(`${turn.id}-${index}`, index)}
+      markdown={markdown}
+      last={index === bubbles.length - 1}
+      time={time}
+      answer={time && index === bubbles.length - 1 ? answer : ""}
+      canFork={canFork}
+      onFork={onFork}
+    />
+  ));
   return (
     <View style={{ gap: 3, alignItems: "flex-start" }}>
       {delivered && turn.delivered ? (
@@ -537,19 +548,11 @@ export function AssistantTurn({
         </View>
       ) : null}
       {speaking ? (
-        <SpokenWords text={said} />
+        <SpokenWords text={said} done={turn.finishedAt !== undefined}>
+          {replies}
+        </SpokenWords>
       ) : (
-        bubbles.map((markdown, index) => (
-          <ReplyText
-            key={getMappingKey(`${turn.id}-${index}`, index)}
-            markdown={markdown}
-            last={index === bubbles.length - 1}
-            time={time}
-            answer={time && index === bubbles.length - 1 ? answer : ""}
-            canFork={canFork}
-            onFork={onFork}
-          />
-        ))
+        replies
       )}
       {live && !work.length ? <TypingBubble /> : null}
       {turn.error ? (
@@ -653,16 +656,25 @@ function ReplyActions({
  * What the voice is saying in a call, lit as it's said: the words it hasn't reached yet stay dim,
  * as Claude's voice mode does.
  */
-function SpokenWords({ text }: { text: string }) {
+function SpokenWords({
+  text,
+  done,
+  children,
+}: {
+  text: string;
+  /** Its words have all come: once they're all said, it shows as any reply (children). */
+  done: boolean;
+  children: ReactNode;
+}) {
   const [unsaid, setUnsaid] = useState(() => callUnsaid());
   useEffect(() => {
     const timer = setInterval(() => setUnsaid(callUnsaid()), 80);
     return () => clearInterval(timer);
   }, []);
-  // A word lights up whole, as the voice starts it.
+  if (done && unsaid === 0) return children;
+  // A word lights up once the voice has said all of it.
   const reached = Math.max(0, text.length - unsaid);
-  const space = text.indexOf(" ", reached);
-  const said = unsaid === 0 || space < 0 ? text.length : space;
+  const said = reached >= text.length ? text.length : text.lastIndexOf(" ", reached) + 1;
   return (
     <View style={{ alignSelf: "stretch", paddingHorizontal: 4 }}>
       <Text size="base" style={{ lineHeight: 23 }}>

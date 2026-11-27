@@ -90,8 +90,9 @@ let playsUntil = 0;
 let agentChars = 0;
 let utteranceChars = 0;
 let playedChars = 0;
+let wordsAt = 0;
 let reaches: { at: number; chars: number }[] = [];
-/** Past this long with nothing playing, everything the voice has said has been heard. */
+/** Past this long with nothing playing and no new words, everything the voice has said has been heard. */
 const SAID_AFTER_MS = 400;
 
 const isCurrent = (id: string) => get().call?.id === id;
@@ -186,7 +187,7 @@ function hangUp(error?: { title: string; body: string }): void {
   unsentMs = 0;
   spokeAt = -Infinity;
   early = [];
-  outputRate = playsUntil = agentChars = utteranceChars = playedChars = 0;
+  outputRate = playsUntil = agentChars = utteranceChars = playedChars = wordsAt = 0;
   reaches = [];
   const ended = onEnd;
   onEnd = undefined;
@@ -266,6 +267,7 @@ function onTalkEvent(event: TalkEvent): void {
       if (event.role === "assistant") {
         const more = event.final ? event.text.trim().length - utteranceChars : event.text.length;
         agentChars += Math.max(0, more);
+        wordsAt = performance.now();
         utteranceChars = event.final ? 0 : utteranceChars + event.text.length;
       }
       return;
@@ -290,7 +292,8 @@ export function callUnsaid(): number {
   const now = performance.now();
   while (reaches.length > 0 && reaches[0].at <= now)
     playedChars = Math.max(playedChars, reaches.shift()!.chars);
-  if (reaches.length === 0 && now - playsUntil > SAID_AFTER_MS) playedChars = agentChars;
+  if (reaches.length === 0 && now - Math.max(playsUntil, wordsAt) > SAID_AFTER_MS)
+    playedChars = agentChars;
   return Math.max(0, agentChars - playedChars);
 }
 
