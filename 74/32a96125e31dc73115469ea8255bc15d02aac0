@@ -1,0 +1,22 @@
+packages/shared/src/error-reports.ts
+  s_d443cfafdeb497::t_3e988662d3bff6 171-174,181
+packages/mobile/src/polyfills.ts
+  s_d443cfafdeb497::t_3e988662d3bff6 5,124-137,141
+  s_d443cfafdeb497::t_c8e6d2b842c353 138-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7432a96125e31dc73115469ea8255bc15d02aac0",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
