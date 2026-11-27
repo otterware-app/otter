@@ -107,13 +107,29 @@ describe("a call with OpenClaw", () => {
       {
         talkId: "talk-1",
         type: "closed",
-        error: "Your gateway stopped taking the call's audio. Start the call again.",
+        error: "Your gateway stopped taking the call. Start the call again.",
       },
     ]);
     expect(g.calls).toHaveBeenCalledWith("talk.session.close", {
       sessionId: "talk-1",
       disposition: "detach",
     });
+  });
+
+  it("says why the voice stopped when the gateway has already closed its session", async () => {
+    const events: TalkEvent[] = [];
+    const g = gateway((method) => {
+      if (method === "talk.session.acknowledgeMark") throw new Error("Unknown Talk session");
+      return {};
+    });
+    await talks.startTalk(g, "s", (e) => events.push(e));
+    relay({ type: "error", message: "Realtime provider error." });
+    await expect(talks.talkPlayed("talk-1", "m1")).resolves.toBeUndefined();
+    expect(events).toEqual([
+      { talkId: "talk-1", type: "closed", error: "Realtime provider error." },
+    ]);
+    // A late answer for a session already closed is nothing more.
+    await expect(talks.talkPlayed("talk-1", "m2")).resolves.toBeUndefined();
   });
 
   it("asks the agent for a voice that can't, and gives the voice the agent's answer", async () => {

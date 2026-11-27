@@ -185,32 +185,47 @@ export function createTalks() {
     };
   }
 
+  /**
+   * A request in a call. One that fails ends the call, as in OpenClaw's clients; one the gateway
+   * answers after it closed the session, with its reason already given, is nothing more.
+   */
+  async function relay(
+    talkId: string,
+    talk: Talk,
+    method: string,
+    params: object,
+    options?: { timeoutMs: number },
+  ): Promise<void> {
+    try {
+      await talk.gateway.request(method, { sessionId: talkId, ...params }, options);
+    } catch (error) {
+      if (!talks.has(talkId)) return;
+      logger.info("agent", `openclaw ${method} failed`, { talkId, error: String(error) });
+      if (/unknown talk session/i.test(plain(error)))
+        closed(talkId, talk.error ?? "OpenClaw's voice stopped.");
+      else void endTalk(talkId, "Your gateway stopped taking the call. Start the call again.");
+    }
+  }
+
   async function talkAudio(talkId: string, audio: string): Promise<void> {
     const talk = talks.get(talkId);
     if (!talk) return;
     talk.heardAt = Date.now();
-    try {
-      await talk.gateway.request(
-        "talk.session.appendAudio",
-        { sessionId: talkId, audioBase64: audio, timestamp: Date.now() },
-        { timeoutMs: AUDIO_ACK_MS },
-      );
-    } catch (error) {
-      if (!talks.has(talkId)) return;
-      logger.info("agent", "openclaw talk audio failed", { talkId, error: String(error) });
-      void endTalk(talkId, "Your gateway stopped taking the call's audio. Start the call again.");
-    }
+    await relay(
+      talkId,
+      talk,
+      "talk.session.appendAudio",
+      { audioBase64: audio, timestamp: Date.now() },
+      { timeoutMs: AUDIO_ACK_MS },
+    );
   }
 
   async function talkPlayed(talkId: string, mark: string): Promise<void> {
     const talk = talks.get(talkId);
     if (!talk || !mark) return;
     talk.marks.delete(mark);
-    await talk.gateway.request("talk.session.acknowledgeMark", {
-      sessionId: talkId,
-      markName: mark,
-    });
-    if (talk.marks.size === 0) releaseHeld(talkId, talk);
+    await relay(talkId, talk, "talk.session.acknowledgeMark", { markName: mark });
+    if (talk.marks.size === 0 && talks.has(talkId)) releaseHeld(talkId, talk);
   }
 
   /** Ending a call leaves what the agent was asked going: its answer still comes to the chat. */

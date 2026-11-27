@@ -18,6 +18,7 @@ describe("a failure while the OpenClaw gateway restarts or is out of reach", () 
       levelOf("agent:browserEvents failed", new Error("gateway closed (1012): service restart")),
     ).toBe("warn");
     expect(levelOf("agent:browserView failed", new Error("Can't reach the gateway."))).toBe("warn");
+    expect(levelOf("agent:cronList failed", new Error("Can't reach your gateway."))).toBe("warn");
     // OTTER-MAIL-DESKTOP-Q: connecting as the Mac wakes, before its network is back.
     expect(levelOf("agent:browserView failed", new Error("The gateway didn't answer."))).toBe(
       "warn",
