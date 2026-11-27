@@ -8,7 +8,6 @@ import {
   soundCall,
   startCall,
   useTalk,
-  useWorkingCue,
 } from "@otter/client/agents/talk";
 import { useOtterAccount } from "@otter/client/otter-account";
 import { phoneTalkAudio } from "@otter/mobile/talk-audio";
@@ -204,7 +203,6 @@ export function VoiceMode({ chatId }: { chatId: string }) {
   const convo = useChats((s) => s.conversations.find((c) => c.id === chatId));
   const live = call?.liveAt != null;
   const active = call !== null;
-  useWorkingCue(working, live);
 
   const you = useSharedValue(0);
   const agent = useSharedValue(0);
@@ -227,6 +225,9 @@ export function VoiceMode({ chatId }: { chatId: string }) {
   useEffect(() => {
     if (live) haptics.impact();
   }, [live]);
+  useEffect(() => {
+    if (live && working) haptics.tap();
+  }, [live, working]);
 
   const problem = open?.problem ?? null;
   const muted = call?.muted ?? false;

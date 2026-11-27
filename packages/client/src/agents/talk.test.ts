@@ -45,7 +45,6 @@ function fakeAudio() {
   const speaker: Speaker = {
     play: vi.fn(),
     clear: vi.fn(),
-    cue: vi.fn(),
     pendingMs: () => 250,
     level: () => 0,
     close: vi.fn(),

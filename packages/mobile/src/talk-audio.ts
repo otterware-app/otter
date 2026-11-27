@@ -17,7 +17,6 @@ type TalkModule = {
   mute(id: string, muted: boolean): Promise<void>;
   play(id: string, pcm: string): Promise<void>;
   clear(id: string): Promise<void>;
-  cue(id: string): Promise<void>;
   pendingMs(id: string): Promise<number>;
 };
 
@@ -59,7 +58,6 @@ function nativeTalkAudio(native: TalkModule): TalkAudio {
         speak: () => ({
           play: (pcm) => void native.play(id, pcmToBase64(pcm)).catch(() => {}),
           clear: () => void native.clear(id).catch(() => {}),
-          cue: () => void native.cue(id).catch(() => {}),
           pendingMs: () => native.pendingMs(id),
           level: () => playingLevel,
           close: release,

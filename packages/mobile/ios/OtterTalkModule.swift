@@ -30,9 +30,6 @@ public final class OtterTalkModule: Module {
     AsyncFunction("clear") { (id: String) in
       MainActor.assumeIsolated { if callID == id { audio?.clear() } }
     }.runOnQueue(.main)
-    AsyncFunction("cue") { (id: String) in
-      MainActor.assumeIsolated { if callID == id { audio?.cue() } }
-    }.runOnQueue(.main)
     AsyncFunction("pendingMs") { (id: String) -> Double in
       MainActor.assumeIsolated {
         guard callID == id, let audio else { return 0 }
