@@ -55,6 +55,8 @@ function output(command: string, args: string[]): string {
 
 type Device = { udid: string; name: string; state: string };
 
+const IPHONE = "com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro";
+
 function simulator(nameOrId: string): Device & { runtime: string } {
   const list = JSON.parse(output("xcrun", ["simctl", "list", "devices", "available", "-j"])) as {
     devices: Record<string, Device[]>;
@@ -64,21 +66,26 @@ function simulator(nameOrId: string): Device & { runtime: string } {
     if (found) return { ...found, runtime };
   }
   const runtimes = JSON.parse(output("xcrun", ["simctl", "list", "runtimes", "-j"])) as {
-    runtimes: { identifier: string; platform: string; isAvailable: boolean; version: string }[];
+    runtimes: {
+      identifier: string;
+      platform: string;
+      isAvailable: boolean;
+      version: string;
+      supportedDeviceTypes: { identifier: string }[];
+    }[];
   };
   const runtime = runtimes.runtimes
-    .filter((r) => r.platform === "iOS" && r.isAvailable)
+    .filter(
+      (r) =>
+        r.platform === "iOS" &&
+        r.isAvailable &&
+        r.supportedDeviceTypes.some((t) => t.identifier === IPHONE),
+    )
     .sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }))
     .at(-1);
   if (!runtime) throw new Error("No iOS simulator runtime is installed.");
   console.log(`Creating the "${nameOrId}" simulator (iPhone 18 Pro, iOS ${runtime.version})`);
-  const udid = output("xcrun", [
-    "simctl",
-    "create",
-    nameOrId,
-    "com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro",
-    runtime.identifier,
-  ]);
+  const udid = output("xcrun", ["simctl", "create", nameOrId, IPHONE, runtime.identifier]);
   return { udid, name: nameOrId, state: "Shutdown", runtime: runtime.identifier };
 }
 
