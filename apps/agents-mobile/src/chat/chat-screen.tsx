@@ -66,6 +66,8 @@ import {
   useReanimatedKeyboardAnimation,
 } from "react-native-keyboard-controller";
 import Animated, {
+  FadeInDown,
+  FadeOutDown,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -81,6 +83,15 @@ import { ComposerPanelContext } from "./composer-panel.ts";
 import { ChatFooter } from "./footer.tsx";
 import { ChatTextContext } from "./markdown.tsx";
 import { AssistantTurn, DayPill, UserTurn, type Live } from "./transcript.tsx";
+import {
+  leaveVoice,
+  useVoice,
+  useVoiceGreeting,
+  VOICE_FOOT_HEIGHT,
+  VOICE_SWAP,
+  VoiceEnded,
+  VoiceMode,
+} from "./voice-mode.tsx";
 
 const Footer = createContext<{
   height: SharedValue<number>;
@@ -165,6 +176,8 @@ function Chat({ chat }: { chat: Conversation }) {
   const lastId = chat.turns.at(-1)?.id ?? "";
   const retryable = useChats((s) => s.retries[lastId] !== undefined);
   const detached = isDetached({ runs: run ? { [id]: run } : {} }, chat);
+  const voice = useVoice((s) => s.open?.chatId === id);
+  useEffect(() => () => leaveVoice(id), [id]);
 
   const list = useRef<FlashListRef<Item>>(null);
   const composer = useRef<ComponentRef<typeof TextInput>>(null);
@@ -394,7 +407,8 @@ function Chat({ chat }: { chat: Conversation }) {
       <Animated.View
         style={[{ position: "absolute", left: 0, right: 0, bottom: 0 }, keyboard.lift]}
       >
-        {turns.length > 0 ? (
+        <VoiceEnded chatId={id} />
+        {turns.length > 0 && !voice ? (
           <JumpToLatest
             atEnd={atEnd}
             onPress={() => list.current?.scrollToEnd({ animated: true })}
@@ -409,15 +423,24 @@ function Chat({ chat }: { chat: Conversation }) {
               requestAnimationFrame(() => list.current?.scrollToEnd({ animated: false }));
           }}
         >
-          {canWrite ? (
-            <ComposerPanelContext value={keyboard.panel}>
-              <ChatFooter chatId={id} input={composer} />
-            </ComposerPanelContext>
+          {voice ? (
+            <View style={{ height: VOICE_FOOT_HEIGHT }} />
+          ) : canWrite ? (
+            // The composer sinks away as a call takes its place, and comes back as it ends.
+            <Animated.View
+              entering={FadeInDown.duration(VOICE_SWAP.duration).easing(VOICE_SWAP.easing)}
+              exiting={FadeOutDown.duration(VOICE_SWAP.duration).easing(VOICE_SWAP.easing)}
+            >
+              <ComposerPanelContext value={keyboard.panel}>
+                <ChatFooter chatId={id} input={composer} />
+              </ComposerPanelContext>
+            </Animated.View>
           ) : (
             <ReadOnly chat={chat} agents={agents} />
           )}
         </View>
       </Animated.View>
+      {voice ? <VoiceMode chatId={id} /> : null}
     </View>
   );
 }
@@ -628,6 +651,7 @@ function JumpToLatest({ atEnd, onPress }: { atEnd: SharedValue<boolean>; onPress
 /** Loading, and an empty chat's "What can I help with?", over the transcript. */
 function Placeholder({ chat, hydrating }: { chat: Conversation; hydrating: boolean }) {
   const { id: agent, provider, gatewayAgent, label } = useChatAgent(chat.id);
+  const greeting = useVoiceGreeting(chat.id);
   if (!chat.loaded || hydrating)
     return (
       <View
@@ -663,19 +687,21 @@ function Placeholder({ chat, hydrating }: { chat: Conversation; hydrating: boole
       }}
     >
       <Text size="2xl" weight="medium" style={{ fontSize: 26, letterSpacing: -0.5 }}>
-        What can I help with?
+        {greeting ?? "What can I help with?"}
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push({ pathname: "/agents/[id]/model", params: { id: chat.id } })}
-        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-      >
-        <AgentAvatar agent={agent} gatewayAgent={gatewayAgent} size={18} />
-        <Text size="sm" color="mutedForeground">
-          {provider ? `with ${label}` : "Add an agent in Settings › Agents"}
-        </Text>
-        <Icon name="chevron.right" size={10} weight="semibold" color="mutedForeground" />
-      </Pressable>
+      {greeting ? null : (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: "/agents/[id]/model", params: { id: chat.id } })}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+        >
+          <AgentAvatar agent={agent} gatewayAgent={gatewayAgent} size={18} />
+          <Text size="sm" color="mutedForeground">
+            {provider ? `with ${label}` : "Add an agent in Settings › Agents"}
+          </Text>
+          <Icon name="chevron.right" size={10} weight="semibold" color="mutedForeground" />
+        </Pressable>
+      )}
     </View>
   );
 }

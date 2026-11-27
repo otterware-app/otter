@@ -139,6 +139,13 @@ describe("a call", () => {
     expect(audio.speaker.clear).toHaveBeenCalled();
   });
 
+  it("plays silence in the voice's place with the sound off", async () => {
+    await connected();
+    talk.soundCall(false);
+    core.emit({ talkId: "t1", type: "audio", audio: btoa("\x01\x00\x02\x00") });
+    expect(audio.speaker.play).toHaveBeenCalledWith(new Int16Array(2));
+  });
+
   it("keeps what came before the call was known, and plays it once it is", async () => {
     const release = audio.holdOpen();
     void talk.startCall("chat-1", "oc", null, audio.audio);
@@ -202,9 +209,9 @@ describe("a call", () => {
     audio.hear(0.5, new Int16Array([123]));
     expect(core.calls("agent:talkAudio").at(-1)?.audio).toBe(btoa("\x00\x00"));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(talk.callLevel()).toEqual({ level: 0, speaking: false });
+    expect(talk.callLevels()).toEqual({ you: 0, agent: 0, speaking: false });
     talk.muteCall(false);
-    expect(talk.callLevel()).toEqual({ level: 0.5, speaking: false });
+    expect(talk.callLevels()).toEqual({ you: 1, agent: 0, speaking: false });
   });
 
   it("hangs up: the gateway hears it, and the microphone and speaker close", async () => {
@@ -230,7 +237,7 @@ describe("a call", () => {
     const ended = vi.fn();
     await talk.startCall("chat-1", "oc", "s0", audio.audio, ended);
     core.emit({ talkId: "t1", type: "closed", error: "Gateway went away" });
-    expect(ended).toHaveBeenCalledExactlyOnceWith("Gateway went away");
+    expect(ended).toHaveBeenCalledExactlyOnceWith("Gateway went away", expect.any(Number));
     expect(notices).toEqual([]);
   });
 
@@ -288,7 +295,15 @@ describe("a call", () => {
 });
 
 describe("what the call bar says", () => {
-  const base = { id: "c", chatId: "x", provider: "oc", talkId: "t", liveAt: 1, muted: false };
+  const base = {
+    id: "c",
+    chatId: "x",
+    provider: "oc",
+    talkId: "t",
+    liveAt: 1,
+    muted: false,
+    sound: true,
+  };
 
   it("puts connecting, then the agent speaking, working, muted, listening", () => {
     const say = (over: object, state: { speaking?: boolean; working?: boolean } = {}) =>
@@ -303,8 +318,8 @@ describe("what the call bar says", () => {
     expect(say({})).toBe("Listening");
   });
 
-  it("times it in minutes and seconds", () => {
-    expect(talk.callTime(0, 187_900)).toBe("3:07");
-    expect(talk.callTime(10, 0)).toBe("0:00");
+  it("says how long a call lasted", () => {
+    expect(talk.callLasted(80_400)).toBe("1 min 20 s");
+    expect(talk.callLasted(200)).toBe("1 s");
   });
 });

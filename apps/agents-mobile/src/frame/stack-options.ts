@@ -39,5 +39,5 @@ export const sheet = (detents: number[] = [1]): ScreenOptions => ({
   headerShown: false,
 });
 
-/** A screen over everything, as SwiftUI's `.fullScreenCover`: Talk, the browser. */
+/** A screen over everything, as SwiftUI's `.fullScreenCover`: the browser. */
 export const cover: ScreenOptions = { presentation: "fullScreenModal", headerShown: false };

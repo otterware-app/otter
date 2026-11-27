@@ -64,6 +64,7 @@ import {
   type PhoneFile,
 } from "./attachment-files.ts";
 import { useChatAgent } from "./chat-agent.ts";
+import { startVoice } from "./voice-mode.tsx";
 import { ComposerPanelContext } from "./composer-panel.ts";
 
 const NO_CITATIONS: Citation[] = [];
@@ -373,7 +374,7 @@ export function Composer({
               haptics.tap();
               setPanel(false);
               Keyboard.dismiss();
-              router.push({ pathname: "/agents/[id]/talk", params: { id: chatId } });
+              if (agent.id) startVoice(chatId, agent.id, agent.convo?.sessionId ?? null);
             }}
           >
             <Circle icon="waveform" fill={theme.colors.primary} />
