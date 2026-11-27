@@ -244,7 +244,7 @@ export function VoiceMode({ chatId }: { chatId: string }) {
       style={StyleSheet.absoluteFill}
       pointerEvents="box-none"
     >
-      <FootFade height={insets.bottom + VOICE_FOOT_HEIGHT + 40} color={theme.colors.canvas} />
+      <FootFade height={insets.bottom + VOICE_FOOT_HEIGHT + FADE} color={theme.colors.canvas} />
       <VoiceGlow agent={agentGlow} you={youGlow} working={working} />
       {muted && !problem ? (
         <Animated.View
@@ -341,6 +341,9 @@ function ModelChip({ chatId }: { chatId: string }) {
   );
 }
 
+/** How far above the controls the transcript fades out: the caption is on a solid ground. */
+const FADE = 64;
+
 /** The transcript fades out under the controls. */
 function FootFade({ height, color }: { height: number; color: string }) {
   return (
@@ -349,7 +352,7 @@ function FootFade({ height, color }: { height: number; color: string }) {
         <Defs>
           <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={color} stopOpacity={0} />
-            <Stop offset="0.4" stopColor={color} stopOpacity={1} />
+            <Stop offset={FADE / height} stopColor={color} stopOpacity={1} />
           </LinearGradient>
         </Defs>
         <Rect width="100%" height="100%" fill="url(#fade)" />
@@ -416,7 +419,13 @@ const styles = StyleSheet.create({
   },
   lit: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" },
   controls: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
-  control: { width: CONTROL, height: CONTROL, alignItems: "center", justifyContent: "center" },
+  control: {
+    width: CONTROL,
+    height: CONTROL,
+    borderRadius: CONTROL / 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   chip: {
     height: CONTROL,
     flexDirection: "row",
