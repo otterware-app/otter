@@ -1,0 +1,35 @@
+apps/mail-mobile/src/mail/benchmark-status.tsx
+  s_d443cfafdeb497::t_025ce1376aa8f4 2,46
+apps/mail-mobile/src/frame/mail-bar.tsx
+  s_d443cfafdeb497::t_025ce1376aa8f4 553
+  s_d443cfafdeb497::t_2cbdb2bcf46d30 3,5
+apps/mail-mobile/src/mail/mailbox-screen.tsx
+  s_d443cfafdeb497::t_b082d3713a3a15 81-88,187,190,884
+  s_d443cfafdeb497::t_f083a02500ebf7 378
+  s_d443cfafdeb497::t_bee873d6237bac 371-377,379-421,774-814,816-856,862-883
+  s_d443cfafdeb497::t_025ce1376aa8f4 4-10,13,73-79,138,425
+  s_d443cfafdeb497::t_217bd2091072f3 22,24-34,50
+  s_d443cfafdeb497::t_de3bc7c402dc81 479,483
+  s_d443cfafdeb497::t_c8e6d2b842c353 815,857-861
+  s_d443cfafdeb497::t_eeb1079cef861c 80,422,885
+apps/mail-mobile/src/mail/format-date.ts
+  s_d443cfafdeb497::t_217bd2091072f3 1,4-30
+packages/client/src/mail/hooks.ts
+  s_d443cfafdeb497::t_c87b08ff07725d 1495-1513
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b6dae059a3fe3929157e7a48336f99c8c8b7391",
+  "prompts": {},
+  "sessions": {
+    "s_d443cfafdeb497": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1a98d1-15aa-4653-8fc6-effe832a58f8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Christophe Kafrouni <44137603+ckafrouni@users.noreply.github.com>"
+    }
+  }
+}
