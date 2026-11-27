@@ -68,8 +68,8 @@ const CHUNK_MS = 40;
 const MAX_UNSENT_MS = 3000;
 /** The agent counts as speaking this long after it last made a sound, between words. */
 const SPEAKING_HOLD_MS = 600;
-/** While the agent works and the voice is quiet, a soft cue this often: the call isn't stuck. */
-const CUE_EVERY_MS = 2200;
+/** While the agent works and the voice has been quiet this long, a soft cue: the call isn't stuck. */
+const CUE_AFTER_MS = 6000;
 
 let mic: Microphone | null = null;
 let speaker: Speaker | null = null;
@@ -258,13 +258,17 @@ export function callLevels(): { you: number; agent: number; speaking: boolean } 
   };
 }
 
-/** While the agent works on a live call and its voice is quiet, a soft cue now and then. */
+/** While the agent works on a live call and its voice has long been quiet, a soft cue now and then. */
 export function useWorkingCue(working: boolean, live: boolean): void {
   useEffect(() => {
     if (!working || !live) return;
+    let cuedAt = performance.now();
     const timer = setInterval(() => {
-      if (performance.now() - spokeAt >= SPEAKING_HOLD_MS) speaker?.cue();
-    }, CUE_EVERY_MS);
+      const now = performance.now();
+      if (now - Math.max(spokeAt, cuedAt) < CUE_AFTER_MS) return;
+      cuedAt = now;
+      speaker?.cue();
+    }, 500);
     return () => clearInterval(timer);
   }, [working, live]);
 }
@@ -301,14 +305,6 @@ export function callCaption(
     text,
     done: said.finishedAt !== undefined,
   };
-}
-
-/** The end of what someone is saying, as a caption shows it: its last `limit` characters, from a word. */
-export function captionTail(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  const tail = text.slice(text.length - limit);
-  const whole = text[text.length - limit - 1] === " ";
-  return `…${whole ? tail : tail.slice(tail.indexOf(" ") + 1)}`;
 }
 
 /** How long a call lasted, as the card after it says: "1m 20s". */

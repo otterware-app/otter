@@ -43,6 +43,8 @@ export type ReplyLayout = {
    * sent while it answered can split it across replies).
    */
   answers: boolean;
+  /** Written for a call, and said since by the voice in its own words: its answer folds too. */
+  heard: boolean;
   /**
    * The run in flight ends here, thinking: it isn't in a step, a compaction, asking you or waiting
    * on subagents.
@@ -98,6 +100,7 @@ export function layoutReplies(
 ): Map<string, ReplyLayout> {
   const layouts = new Map<string, ReplyLayout>();
   const runs = runsOf(turns);
+  const heard = heardInCall(turns);
   const latest = runs.findLast((run) => !run.replies[0].turn.spoken);
   for (const run of runs) {
     const replies = run.replies.map(({ turn }) => turn);
@@ -109,7 +112,7 @@ export function layoutReplies(
     const base = { live, working: false, fold: null, foldedUnder: null };
     const idle = { thinking: false, stepping: false };
     replies.forEach((turn, index) =>
-      layouts.set(turn.id, { ...base, ...idle, answers: index >= lastStep }),
+      layouts.set(turn.id, { ...base, ...idle, answers: index >= lastStep, heard: false }),
     );
     if (live) {
       const tail = shownItems(last).at(-1);
@@ -126,6 +129,11 @@ export function layoutReplies(
       continue;
     }
     if (replies.some((turn) => turn.error)) continue;
+    // What a call asked of the agent, once the voice has said it: its written answer folds too.
+    if (replies.every((turn) => heard.has(turn.id)))
+      replies.forEach((turn) =>
+        layouts.set(turn.id, { ...layouts.get(turn.id)!, answers: false, heard: true }),
+      );
 
     const segments: { replies: ChatTurn[]; steer: ChatTurn | null }[] = [
       { replies: [], steer: null },
@@ -164,7 +172,9 @@ export function layoutReplies(
         id: anchor.id,
         label: segment.steer
           ? label("Continued", at, segments[index + 1]?.steer?.startedAt ?? endedAt)
-          : label("Worked", startedAt, endedAt),
+          : heard.has(anchor.id)
+            ? "Written answer"
+            : label("Worked", startedAt, endedAt),
         at,
       };
       layouts.set(anchor.id, { ...layouts.get(anchor.id)!, fold });
@@ -173,6 +183,25 @@ export function layoutReplies(
     });
   }
   return layouts;
+}
+
+/**
+ * The agent's replies written for a call: after a message you said, with the voice's answer said
+ * after them. The voice puts that written answer in its own words.
+ */
+function heardInCall(turns: ChatTurn[]): Set<string> {
+  const heard = new Set<string>();
+  let said = false;
+  let written: string[] = [];
+  for (const turn of turns) {
+    if (turn.role === "user") {
+      said = Boolean(turn.spoken);
+      written = [];
+    } else if (!said || turn.delivered) continue;
+    else if (!turn.spoken) written.push(turn.id);
+    else for (const id of written.splice(0)) heard.add(id);
+  }
+  return heard;
 }
 
 /** A steer right after another reads as one: only the first says it steered. */

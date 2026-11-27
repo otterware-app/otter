@@ -128,6 +128,39 @@ export function transcriptRows(
   });
 }
 
+/**
+ * A chat's turns as its transcript shows them: what the voice said for one answer in a call, in
+ * parts (that it's checking, then the answer), is one turn, at the last part.
+ */
+export function callTurns(turns: ChatTurn[]): ChatTurn[] {
+  const merged = new Map<string, string | null>();
+  let parts: ChatTurn[] = [];
+  const flush = () => {
+    if (parts.length > 1) {
+      for (const part of parts.slice(0, -1)) merged.set(part.id, null);
+      merged.set(parts[parts.length - 1].id, parts.map(spokenText).filter(Boolean).join(" "));
+    }
+    parts = [];
+  };
+  for (const turn of turns) {
+    if (turn.role === "user") flush();
+    else if (turn.spoken) parts.push(turn);
+  }
+  flush();
+  if (merged.size === 0) return turns;
+  return turns.flatMap((turn) => {
+    const said = merged.get(turn.id);
+    if (said === undefined) return [turn];
+    return said === null ? [] : [{ ...turn, items: [{ kind: "text" as const, text: said }] }];
+  });
+}
+
+const spokenText = (turn: ChatTurn) =>
+  (turn.items ?? [])
+    .map((item) => (item.kind === "text" ? item.text : ""))
+    .join("")
+    .trim();
+
 /** The line over a turn no message of yours started: a scheduled task's result, or a message the agent sent. */
 export function deliveryLabel(turn: ChatTurn): string | null {
   const delivered = turn.delivered;

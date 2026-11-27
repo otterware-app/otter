@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { ChatTurn, ChatTurnItem } from "@otter/contracts/chats";
 import { layoutReplies } from "./chat-runs.ts";
 import {
+  callTurns,
   contextLabel,
   deliveryLabel,
   openingCompactions,
@@ -160,6 +161,34 @@ describe("a reply", () => {
     const turns = [ask("u-1"), reply("a-1", [text("ok")], { changes: [change] })];
     expect((rows(turns, { streaming: true })[1] as ReplyRow).showsChanges).toBe(false);
     expect((rows(turns)[1] as ReplyRow).showsChanges).toBe(true);
+  });
+});
+
+describe("a call", () => {
+  const call = [
+    ask("u-1", { spoken: true }),
+    reply("a-ack", [text("Yep, heard you.")], { spoken: true, finishedAt: 1 }),
+    reply("a-run", [step("ok"), text("The full written answer.")], { finishedAt: 2 }),
+    reply("a-said", [text("In short, it's done.")], { spoken: true, finishedAt: 3 }),
+  ];
+
+  it("shows what the voice said as one reply, after the agent's written answer", () => {
+    const shown = rows(callTurns(call));
+    expect(shown.map((r) => r.turn.id)).toEqual(["u-1", "a-run", "a-said"]);
+    expect(shown[2].turn.items).toEqual([text("Yep, heard you. In short, it's done.")]);
+  });
+
+  it("folds the written answer once the voice has said it", () => {
+    const written = rows(callTurns(call))[1] as ReplyRow;
+    expect(written).toMatchObject({ answer: "", work: [] });
+    expect(written.layout).toMatchObject({ heard: true, fold: { label: "Written answer" } });
+    const opened = rows(callTurns(call), { expanded: new Set(["a-run"]) })[1] as ReplyRow;
+    expect(opened.work).toHaveLength(2);
+  });
+
+  it("keeps the written answer in view while the voice hasn't said it", () => {
+    const written = rows(call.slice(0, 3))[2] as ReplyRow;
+    expect(written.answer).toBe("The full written answer.");
   });
 });
 

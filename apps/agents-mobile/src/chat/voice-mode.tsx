@@ -1,10 +1,8 @@
 import type { ProviderKind } from "@otter/client/agents/api";
 import { isBlank, useChats } from "@otter/client/agents/chat-store";
 import {
-  callCaption,
   callLasted,
   callLevels,
-  captionTail,
   endCall,
   muteCall,
   soundCall,
@@ -43,15 +41,14 @@ import { useGlow, VoiceGlow, YOUR_BLUE } from "./voice-glow.tsx";
 
 const MIC = 68;
 const CONTROL = 48;
-/** Two lines of caption. */
-const CAPTION_HEIGHT = 48;
+/** Two lines of status. */
+const STATUS_HEIGHT = 48;
 const FOOT_PADDING = 8;
 const MIC_GAP = 12;
-const CAPTION_CHARACTERS = 90;
 const ENDED_SHOWN_MS = 4000;
 
 /** How far voice mode's controls reach up from the safe area's foot: the transcript ends above them. */
-export const VOICE_FOOT_HEIGHT = FOOT_PADDING + CONTROL + MIC_GAP + MIC + MIC_GAP + CAPTION_HEIGHT;
+export const VOICE_FOOT_HEIGHT = FOOT_PADDING + CONTROL + MIC_GAP + MIC + MIC_GAP + STATUS_HEIGHT;
 export const VOICE_SWAP = { duration: 260, easing: Easing.out(Easing.cubic) };
 
 /**
@@ -59,14 +56,14 @@ export const VOICE_SWAP = { duration: 260, easing: Easing.out(Easing.cubic) };
  * that failed, until its problem is dismissed. The last call's length, for the card after it.
  */
 export const useVoice = create<{
-  open: { chatId: string; since: number; problem: string | null } | null;
+  open: { chatId: string; problem: string | null } | null;
   ended: { chatId: string; lasted: number } | null;
 }>(() => ({ open: null, ended: null }));
 
 export function startVoice(chatId: string, provider: ProviderKind, sessionId: string | null): void {
   if (!phoneTalkAudio) return;
   endCall();
-  useVoice.setState({ open: { chatId, since: Date.now(), problem: null }, ended: null });
+  useVoice.setState({ open: { chatId, problem: null }, ended: null });
   void startCall(chatId, provider, sessionId, phoneTalkAudio, (problem, liveFor) => {
     const open = useVoice.getState().open;
     if (open?.chatId !== chatId) return;
@@ -194,8 +191,8 @@ function RoundButton({
 /**
  * Voice mode, Claude's: the chat stays on screen and the call takes the composer's place, with
  * the microphone above the sound and end buttons. Light shows who is talking (the agent's orange
- * along the display's edge, your blue rising from the foot), and what's said runs as a caption
- * above the microphone.
+ * along the display's edge, your blue rising from the foot). What's said streams into the
+ * transcript above, so the foot doesn't repeat it: it only says when the call is connecting or failed.
  */
 export function VoiceMode({ chatId }: { chatId: string }) {
   const theme = useTheme();
@@ -235,7 +232,6 @@ export function VoiceMode({ chatId }: { chatId: string }) {
   const muted = call?.muted ?? false;
   const sound = call?.sound ?? true;
   const status = problem ? problem : !live && convo && !isBlank(convo) ? "Connecting…" : null;
-  const caption = open && convo ? callCaption(convo.turns, open.since) : null;
 
   return (
     <Animated.View
@@ -262,7 +258,7 @@ export function VoiceMode({ chatId }: { chatId: string }) {
         pointerEvents="box-none"
         style={[styles.foot, { paddingBottom: insets.bottom + FOOT_PADDING }]}
       >
-        <View style={styles.caption} pointerEvents="none">
+        <View style={styles.status} pointerEvents="none">
           {status ? (
             <Animated.View key="status" entering={FadeIn.duration(180)}>
               <Text
@@ -270,24 +266,9 @@ export function VoiceMode({ chatId }: { chatId: string }) {
                 color={problem ? "error" : "mutedForeground"}
                 accessibilityRole={problem ? "alert" : undefined}
                 numberOfLines={2}
-                style={styles.captionText}
+                style={styles.statusText}
               >
                 {status}
-              </Text>
-            </Animated.View>
-          ) : caption ? (
-            <Animated.View
-              key={caption.id}
-              entering={FadeIn.duration(180)}
-              exiting={FadeOut.duration(160)}
-            >
-              <Text
-                size="base"
-                color="mutedForeground"
-                numberOfLines={2}
-                style={[styles.captionText, caption.speaker === "you" && { fontStyle: "italic" }]}
-              >
-                {captionTail(caption.text, CAPTION_CHARACTERS)}
               </Text>
             </Animated.View>
           ) : null}
@@ -341,7 +322,7 @@ function ModelChip({ chatId }: { chatId: string }) {
   );
 }
 
-/** How far above the controls the transcript fades out: the caption is on a solid ground. */
+/** How far above the controls the transcript fades out: the status is on a solid ground. */
 const FADE = 64;
 
 /** The transcript fades out under the controls. */
@@ -401,13 +382,13 @@ const styles = StyleSheet.create({
   fade: { position: "absolute", left: 0, right: 0, bottom: 0 },
   notice: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   foot: { position: "absolute", left: 0, right: 0, bottom: 0 },
-  caption: {
-    height: CAPTION_HEIGHT,
+  status: {
+    height: STATUS_HEIGHT,
     justifyContent: "flex-end",
     alignItems: "center",
     paddingHorizontal: 32,
   },
-  captionText: { textAlign: "center" },
+  statusText: { textAlign: "center" },
   micRow: { alignItems: "center", paddingVertical: MIC_GAP },
   mic: {
     width: MIC,
