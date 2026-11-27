@@ -294,10 +294,18 @@ function MailboxList({
       : []),
   ];
 
+  const menuChoices = useMemo(
+    () => ({
+      label: labelChoices("label", account, currentLabels),
+      move: labelChoices("move", account, currentLabels),
+    }),
+    [account, currentLabels],
+  );
+
   function rowMenu(message: MessageSummary) {
     const has = (id: string) => rowLabels(message).includes(id);
     const choices = (kind: "label" | "move") =>
-      labelChoices(kind, account, currentLabels).map(({ id, title }) => (
+      menuChoices[kind].map(({ id, title }) => (
         <Link.MenuAction
           key={id}
           isOn={has(id)}

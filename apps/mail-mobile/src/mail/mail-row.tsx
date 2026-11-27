@@ -4,6 +4,7 @@ import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Text } from "@otter/ui-native/components/text";
 import { alpha, useTheme } from "@otter/ui-native/theme";
 import { useRouter } from "expo-router";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -24,20 +25,7 @@ function writersText(names: string[]): string {
   return (writers.length > 3 ? [writers[0], "…", ...writers.slice(-2)] : writers).join(", ");
 }
 
-export function MailRow({
-  message,
-  account,
-  label,
-  own,
-  codeAccount,
-  trashCode,
-  flagged,
-  fullWidth,
-  selected,
-  onSelect,
-  leading,
-  trailing,
-}: {
+type RowProps = {
   message: MessageSummary;
   account: string;
   label: string;
@@ -50,7 +38,36 @@ export function MailRow({
   onSelect?: () => void;
   leading?: SwipeAction;
   trailing?: SwipeAction;
-}) {
+};
+
+/** `codeAccount`: the row may show a sign-in code from its message, read from that account. */
+export function MailRow(props: RowProps) {
+  return props.codeAccount ? (
+    <RowWithCode {...props} codeAccount={props.codeAccount} />
+  ) : (
+    <Row {...props} code={null} />
+  );
+}
+
+function RowWithCode(props: RowProps & { codeAccount: string }) {
+  const code = useVerificationCode(props.codeAccount, props.message);
+  return <Row {...props} code={code || null} />;
+}
+
+function Row({
+  message,
+  account,
+  label,
+  own,
+  code,
+  trashCode,
+  flagged,
+  fullWidth,
+  selected,
+  onSelect,
+  leading,
+  trailing,
+}: RowProps & { code: string | null }) {
   const theme = useTheme();
   const router = useRouter();
   const unread = message.threadUnread ?? message.unread;
@@ -70,39 +87,51 @@ export function MailRow({
         : senderLabel(lastSender.name, lastSender.email);
   const subject = message.subject || "(No subject)";
   const snippet = decodeEntities(message.snippet);
-  const code = useVerificationCode(codeAccount, message);
   const selecting = selected !== undefined;
   const drag = useSharedValue(0);
   const width = useSharedValue(0);
-  const startSwipe = leading?.run;
-  const endSwipe = trailing?.run;
-  const swipe = pan()
-    .enabled(!selecting && Boolean(leading || trailing))
-    .activeOffsetX([-14, 14])
-    .failOffsetY([-10, 10])
-    .onUpdate(({ translationX }) => {
-      "worklet";
-      drag.set(
-        translationX > 0
-          ? startSwipe
-            ? translationX
-            : translationX * 0.12
-          : endSwipe
-            ? translationX
-            : translationX * 0.12,
-      );
-    })
-    .onEnd(({ velocityX }) => {
-      "worklet";
-      const threshold = Math.min(120, width.get() * 0.38);
-      const projected = drag.get() + velocityX * 0.08;
-      if (startSwipe && drag.get() > 36 && projected >= threshold) scheduleOnRN(startSwipe);
-      if (endSwipe && drag.get() < -36 && projected <= -threshold) scheduleOnRN(endSwipe);
-    })
-    .onFinalize(() => {
-      "worklet";
-      drag.set(withSpring(0, { damping: 24, stiffness: 280 }));
-    });
+  // The gesture is made again only when what it can do changes: a new one is sent to the UI
+  // thread, its worklets with it, and rows draw again as the list scrolls and refreshes.
+  const swipes = useRef({ leading, trailing });
+  useLayoutEffect(() => {
+    swipes.current = { leading, trailing };
+  });
+  const canStart = Boolean(leading);
+  const canEnd = Boolean(trailing);
+  const start = useCallback(() => swipes.current.leading?.run(), []);
+  const end = useCallback(() => swipes.current.trailing?.run(), []);
+  const swipe = useMemo(() => {
+    return (
+      pan()
+        .enabled(!selecting && (canStart || canEnd))
+        .activeOffsetX([-14, 14])
+        .failOffsetY([-10, 10])
+        .onUpdate(({ translationX }) => {
+          "worklet";
+          drag.set(
+            translationX > 0
+              ? canStart
+                ? translationX
+                : translationX * 0.12
+              : canEnd
+                ? translationX
+                : translationX * 0.12,
+          );
+        })
+        // oxlint-disable-next-line react/refs -- `start` and `end` read the ref when a swipe ends.
+        .onEnd(({ velocityX }) => {
+          "worklet";
+          const threshold = Math.min(120, width.get() * 0.38);
+          const projected = drag.get() + velocityX * 0.08;
+          if (canStart && drag.get() > 36 && projected >= threshold) scheduleOnRN(start);
+          if (canEnd && drag.get() < -36 && projected <= -threshold) scheduleOnRN(end);
+        })
+        .onFinalize(() => {
+          "worklet";
+          drag.set(withSpring(0, { damping: 24, stiffness: 280 }));
+        })
+    );
+  }, [selecting, canStart, canEnd, drag, width, start, end]);
   const position = useAnimatedStyle(() => ({ transform: [{ translateX: drag.get() }] }));
   const leadingStyle = useAnimatedStyle(() => ({ opacity: drag.get() > 0 ? 1 : 0 }));
   const trailingStyle = useAnimatedStyle(() => ({ opacity: drag.get() < 0 ? 1 : 0 }));
