@@ -749,6 +749,13 @@
     "sourceUrl": "https://github.com/zertosh/nullthrows"
   },
   {
+    "name": "OpenClaw",
+    "version": null,
+    "license": "MIT",
+    "noticeText": "Calls with an OpenClaw agent follow OpenClaw's own Gateway-relay Talk client (the Control UI's browser Talk), from which Otter's call client is adapted.\n\nMIT License\n\nCopyright (c) 2026 OpenClaw Foundation\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and\nassociated documentation files (the \"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the\nfollowing conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial\nportions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT\nLIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO\nEVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER\nIN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE\nUSE OR OTHER DEALINGS IN THE SOFTWARE.",
+    "sourceUrl": "https://github.com/openclaw/openclaw"
+  },
+  {
     "name": "postal-mime",
     "version": "4.0.0",
     "license": "MIT-0",
