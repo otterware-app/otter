@@ -1,3 +1,4 @@
+import { mailApi } from "@otter/client/mail/api";
 import translation from "@otter/extension-translation/core";
 import { demo } from "@otter/mobile/demo";
 import { native } from "@otter/mobile/native";
@@ -31,5 +32,8 @@ export const coreStarted = startMobileCore({
   errorReports: errorReportsAvailable,
 }).then(async () => {
   followErrorReports();
-  if (benchmark) benchmarkAccountId = (await import("@otter/core/fake")).largeGmailAccountId;
+  if (!benchmark) return;
+  // A fresh install would ask for notifications at the replay's first new mail, mid-measurement.
+  await mailApi.setSyncSettings({ notificationsMode: "off" });
+  benchmarkAccountId = (await import("@otter/core/fake")).largeGmailAccountId;
 });
