@@ -122,6 +122,20 @@ describe("the fake Gmail", () => {
     );
   }, 30_000);
 
+  it("keeps its listing newest first as mail comes and goes", async () => {
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
+    await installFakeGmail(memoryFiles(), { messages: 1000 });
+    const before = (await gmail("/messages?maxResults=500")).messages as { id: string }[];
+    const raw = btoa(`From: a@example.com\r\nTo: ${EMAIL}\r\nSubject: Hi\r\n\r\nHello`);
+    const sent = await gmail("/messages/send", { method: "POST", body: JSON.stringify({ raw }) });
+    await gmail(`/messages/${before[1]!.id}`, { method: "DELETE" });
+
+    const after = (await gmail("/messages?maxResults=500")).messages as { id: string }[];
+    expect(after[0]!.id).toBe(sent.id);
+    expect(after.map((m) => m.id)).not.toContain(before[1]!.id);
+    expect(after.slice(1, 3).map((m) => m.id)).toEqual([before[0]!.id, before[2]!.id]);
+  });
+
   it("saves the seed alone as it always has", async () => {
     vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
     const files = memoryFiles();

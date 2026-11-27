@@ -337,11 +337,29 @@ function modify(box: Mailbox, m: Message, add: string[], remove: string[]): void
 }
 
 function addMessage(box: Mailbox, m: Message): void {
+  unlist(box, box.messages[m.id]);
   box.messages[m.id] = m;
   const saved = savedMessages.get(box);
   if (saved) saved[m.id] = m;
-  newestFirst.delete(box);
+  const sorted = newestFirst.get(box);
+  if (sorted) {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+      const mid = (low + high) >>> 1;
+      if (sorted[mid]!.internalDate > m.internalDate) low = mid + 1;
+      else high = mid;
+    }
+    newestFirst.set(box, sorted.toSpliced(low, 0, m));
+  }
   record(box, { messagesAdded: [ref(m)] });
+}
+
+/** Sorting the large mailbox again takes the app's thread for tens of milliseconds at a time. */
+function unlist(box: Mailbox, m: Message | undefined): void {
+  const sorted = newestFirst.get(box);
+  const index = m && sorted ? sorted.indexOf(m) : -1;
+  if (index >= 0) newestFirst.set(box, sorted!.toSpliced(index, 1));
 }
 
 function deleteMessage(box: Mailbox, id: string): void {
@@ -351,7 +369,7 @@ function deleteMessage(box: Mailbox, id: string): void {
   const saved = savedMessages.get(box);
   if (saved) delete saved[id];
   if (m.generated !== undefined && box.generatedEdits) box.generatedEdits[id] = null;
-  newestFirst.delete(box);
+  unlist(box, m);
   for (const [draftId, messageId] of Object.entries(box.drafts)) {
     if (messageId === id) delete box.drafts[draftId];
   }
