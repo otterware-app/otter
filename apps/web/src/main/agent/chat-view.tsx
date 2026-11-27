@@ -3,6 +3,7 @@ import { MessageScroller } from "@shadcn/react/message-scroller";
 import { ArrowDownIcon, MailIcon } from "lucide-react";
 import { ScrollArea } from "@otter/ui/components/scroll-area";
 import { AgentFace, providerSummary } from "./agent-providers";
+import { callTurns } from "@otter/client/agents/transcript";
 import type { MailChatContext } from "@otter/client/agents/chat-context";
 import { CiteSelectionButton, useCitations } from "./chat-cite";
 import { AttachmentPreview, type PreviewFile } from "../mail/attachment-preview";
@@ -109,7 +110,7 @@ export function ChatView({
   const canSendQueued = useChats((s) => canSteer(s, chatId));
   const asking = useChats((s) => runAsking(s, chatId));
   const hydrating = useChats((s) => s.hydrating === chatId);
-  const turns = convo?.turns ?? [];
+  const turns = callTurns(convo?.turns ?? []);
   const chat = useChatProvider(convo);
   const otter = useOtterAccount();
   const setProvidersState = useSetProvidersState();

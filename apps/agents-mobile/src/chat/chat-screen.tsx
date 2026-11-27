@@ -28,7 +28,7 @@ import {
   type Conversation,
 } from "@otter/client/agents/chat-store";
 import { turnDay } from "@otter/client/agents/chat-time";
-import { transcriptRows, type TranscriptRow } from "@otter/client/agents/transcript";
+import { callTurns, transcriptRows, type TranscriptRow } from "@otter/client/agents/transcript";
 import { Button } from "@otter/ui-native/components/button";
 import { Glass } from "@otter/ui-native/components/glass";
 import { Icon } from "@otter/ui-native/components/icon";
@@ -201,7 +201,7 @@ function Chat({ chat }: { chat: Conversation }) {
         : "working"
     : null;
 
-  const turns = chat.turns;
+  const turns = useMemo(() => callTurns(chat.turns), [chat.turns]);
   const streaming = Boolean(run);
   const waiting = Boolean(run?.waiting);
   const items = useMemo(

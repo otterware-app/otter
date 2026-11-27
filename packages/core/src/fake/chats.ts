@@ -277,6 +277,37 @@ export function seedAgents(now: number): AgentMutation[] {
       ],
     },
     {
+      title: "Call about the boiler email",
+      provider: DEMO_AGENTS.studio,
+      on: "main",
+      ago: 40 * MINUTE,
+      turns: [
+        user("call", "Can you give me an overview of the email to Nikolas?", now - 41 * MINUTE, {
+          spoken: true,
+        }),
+        reply("call-ack", now - 41 * MINUTE, 2_000, [{ text: "Yep, heard you." }], {
+          spoken: true,
+        }),
+        reply("call", now - 41 * MINUTE, 16_000, [
+          { kind: "search", title: "Searched mail for “boiler”", output: '{"drafts": 1}' },
+          {
+            text: "It's a short email to Nikolas explaining that the boiler keeps running even in hot-water-only mode and the pressure is very low. It says this seems similar to the issue someone checked earlier this year, possibly around April, and asks him to arrange another visit. We left the photos out for now.",
+          },
+        ]),
+        reply(
+          "call-said",
+          now - 40 * MINUTE,
+          9_000,
+          [
+            {
+              text: "It's a quick note to Nikolas saying the boiler still runs in hot-water-only mode and the pressure's very low. It suggests it's the same issue as in April and asks him to come again.",
+            },
+          ],
+          { spoken: true },
+        ),
+      ],
+    },
+    {
       title: "Morning brief",
       provider: DEMO_AGENTS.brokk,
       ago: 3 * HOUR,

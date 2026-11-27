@@ -436,7 +436,7 @@ export function AssistantTurn({
   const { getMappingKey } = useMappingHelper();
   const [open, setOpen] = useRecyclingState(false, [turn.id]);
   const items = shownItems(turn);
-  const { work, answer } = splitAnswer(items);
+  const { work, answer } = row.layout?.heard ? { work: items, answer: "" } : splitAnswer(items);
   const showsWork = open || found;
   const said =
     live && !showsWork
