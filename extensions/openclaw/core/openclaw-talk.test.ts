@@ -90,9 +90,46 @@ describe("a call with OpenClaw", () => {
     await talks.talkAudio("talk-1", "BBB=");
     expect(g.calls).toHaveBeenCalledWith(
       "talk.session.appendAudio",
-      { sessionId: "talk-1", audioBase64: "BBB=" },
-      { timeoutMs: 8_000 },
+      { sessionId: "talk-1", audioBase64: "BBB=", timestamp: expect.any(Number) },
+      { timeoutMs: 30_000 },
     );
+  });
+
+  it("ends when the gateway stops taking its audio", async () => {
+    const events: TalkEvent[] = [];
+    const g = gateway((method) => {
+      if (method === "talk.session.appendAudio") throw new Error("timeout");
+      return {};
+    });
+    await talks.startTalk(g, "s", (e) => events.push(e));
+    await talks.talkAudio("talk-1", "BBB=");
+    expect(events).toEqual([
+      {
+        talkId: "talk-1",
+        type: "closed",
+        error: "Your gateway stopped taking the call. Start the call again.",
+      },
+    ]);
+    expect(g.calls).toHaveBeenCalledWith("talk.session.close", {
+      sessionId: "talk-1",
+      disposition: "detach",
+    });
+  });
+
+  it("says why the voice stopped when the gateway has already closed its session", async () => {
+    const events: TalkEvent[] = [];
+    const g = gateway((method) => {
+      if (method === "talk.session.acknowledgeMark") throw new Error("Unknown Talk session");
+      return {};
+    });
+    await talks.startTalk(g, "s", (e) => events.push(e));
+    relay({ type: "error", message: "Realtime provider error." });
+    await expect(talks.talkPlayed("talk-1", "m1")).resolves.toBeUndefined();
+    expect(events).toEqual([
+      { talkId: "talk-1", type: "closed", error: "Realtime provider error." },
+    ]);
+    // A late answer for a session already closed is nothing more.
+    await expect(talks.talkPlayed("talk-1", "m2")).resolves.toBeUndefined();
   });
 
   it("asks the agent for a voice that can't, and gives the voice the agent's answer", async () => {
@@ -131,6 +168,100 @@ describe("a call with OpenClaw", () => {
       callId: "call-2",
       result: { error: "Otter's calls don't have describe_view." },
     });
+  });
+
+  it("steers the agent's work when the voice asks after it, changes it or stops it", async () => {
+    const g = gateway((method) =>
+      method === "talk.session.steer" ? { ok: true, mode: "status", message: "Still on it." } : {},
+    );
+    await talks.startTalk(g, "agent:main:otter-mail:1", () => {});
+    relay({
+      type: "toolCall",
+      callId: "call-3",
+      name: "openclaw_agent_control",
+      args: '{"text":"is it done?","mode":"status"}',
+    });
+    await tick();
+    expect(g.calls).toHaveBeenCalledWith("talk.session.steer", {
+      sessionId: "talk-1",
+      sessionKey: "agent:main:otter-mail:1",
+      text: "is it done?",
+      mode: "status",
+    });
+    expect(g.calls).toHaveBeenCalledWith("talk.session.submitToolResult", {
+      sessionId: "talk-1",
+      callId: "call-3",
+      result: { ok: true, mode: "status", message: "Still on it." },
+    });
+  });
+
+  it("tells a forced consult's voice to wait, and holds the answer until it has finished speaking", async () => {
+    const g = gateway((method) => (method === "talk.client.toolCall" ? { runId: "run-1" } : {}));
+    await talks.startTalk(g, "s", () => {});
+    relay({
+      type: "toolCall",
+      callId: "c1",
+      name: "openclaw_agent_consult",
+      args: {},
+      forced: true,
+    });
+    await tick();
+    expect(g.calls).toHaveBeenCalledWith(
+      "talk.session.submitToolResult",
+      expect.objectContaining({
+        callId: "c1",
+        result: expect.objectContaining({ status: "working" }),
+        options: { willContinue: true },
+      }),
+    );
+    relay({ type: "audio", audioBase64: "AAA=", talkEvent: { turnId: "t1" } });
+    relay({ type: "mark", markName: "m1" });
+    talks.onTalkFrame("chat", {
+      runId: "run-1",
+      state: "final",
+      message: { content: [{ type: "text", text: "Done." }] },
+    });
+    await tick();
+    const answered = () =>
+      g.calls.mock.calls.some(
+        ([method, params]) =>
+          method === "talk.session.submitToolResult" &&
+          (params as { result: { result?: string } }).result.result === "Done.",
+      );
+    expect(answered()).toBe(false);
+    await talks.talkPlayed("talk-1", "m1");
+    await tick();
+    expect(answered()).toBe(true);
+  });
+
+  it("ignores a stale clear, and a cancelled turn cancels its consult", async () => {
+    const events: TalkEvent[] = [];
+    const g = gateway((method) => (method === "talk.client.toolCall" ? { runId: "run-2" } : {}));
+    await talks.startTalk(g, "s", (e) => events.push(e));
+    relay({ type: "audio", audioBase64: "AAA=", talkEvent: { turnId: "t2" } });
+    relay({ type: "clear", talkEvent: { turnId: "t1" } });
+    expect(events.some((e) => e.type === "clear")).toBe(false);
+    relay({ type: "toolCall", callId: "c2", name: "openclaw_agent_consult", args: {} });
+    await tick();
+    relay({ type: "clear", talkEvent: { turnId: "t2", type: "turn.cancelled" } });
+    await tick();
+    expect(events.at(-1)).toEqual({ talkId: "talk-1", type: "clear" });
+    expect(g.calls).toHaveBeenCalledWith("talk.session.submitToolResult", {
+      sessionId: "talk-1",
+      callId: "c2",
+      result: { status: "cancelled", message: "Cancelled the active OpenClaw run." },
+    });
+  });
+
+  it("sends nothing back for a call the gateway cancelled", async () => {
+    const g = gateway((method) => (method === "talk.client.toolCall" ? { runId: "run-3" } : {}));
+    await talks.startTalk(g, "s", () => {});
+    relay({ type: "toolCall", callId: "c3", name: "openclaw_agent_consult", args: {} });
+    await tick();
+    relay({ type: "toolCallCancelled", callId: "c3" });
+    talks.onTalkFrame("chat", { runId: "run-3", state: "final", message: { content: [] } });
+    await tick();
+    expect(g.calls.mock.calls.some(([m]) => m === "talk.session.submitToolResult")).toBe(false);
   });
 
   it("knows what the agent does for it until that's done, after the call too", async () => {

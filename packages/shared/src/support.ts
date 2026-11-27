@@ -123,7 +123,7 @@ export function supportError(at: string, scope: string, text: string): SupportEr
         ? "timeout"
         : /sqlite|database|opfs|storage|disk|enospc/i.test(text)
           ? "storage"
-          : /network|offline|fetch failed|failed to fetch|connect|socket|econn|enotfound|can't reach the gateway|gateway didn't answer|gateway closed \((?:1001|1006|1012)\)|during gateway restart/i.test(
+          : /network|offline|fetch failed|failed to fetch|connect|socket|econn|enotfound|can't reach (?:the|your) gateway|gateway didn't answer|gateway closed \((?:1001|1006|1012)\)|during gateway restart/i.test(
                 text,
               )
             ? "network"

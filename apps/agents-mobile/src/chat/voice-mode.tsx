@@ -193,7 +193,7 @@ function RoundButton({
 
 /**
  * Voice mode, Claude's: the chat stays on screen and the call takes the composer's place, with
- * the microphone above the sound and end buttons. Light shows who is talking (the agent's violet
+ * the microphone above the sound and end buttons. Light shows who is talking (the agent's orange
  * along the display's edge, your blue rising from the foot), and what's said runs as a caption
  * above the microphone.
  */

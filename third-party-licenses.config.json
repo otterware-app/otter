@@ -16,6 +16,21 @@
       ]
     },
     {
+      "name": "OpenClaw",
+      "bundles": ["agents-mobile", "desktop", "web"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/openclaw/openclaw",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 OpenClaw Foundation"],
+          "preamble": [
+            "Calls with an OpenClaw agent follow OpenClaw's own Gateway-relay Talk client (the Control UI's browser Talk), from which Otter's call client is adapted."
+          ]
+        }
+      ]
+    },
+    {
       "name": "shadcn/ui",
       "bundles": ["desktop", "web"],
       "license": "MIT",

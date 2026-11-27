@@ -90,6 +90,39 @@ https://github.com/productiontype/Newsreader, SIL Open Font License 1.1, Copyrig
 Newsreader Project Authors. Bundled in the web and desktop app for the Margin theme
 (`@fontsource-variable/newsreader`).
 
+## OpenClaw
+
+https://github.com/openclaw/openclaw, MIT, by the OpenClaw Foundation.
+
+Calls with an OpenClaw agent follow OpenClaw's own Gateway-relay Talk client, the Control UI's
+browser Talk: how it answers the voice's tool calls, steers the agent's work and holds answers
+until the voice has finished speaking. `extensions/openclaw/core/openclaw-talk.ts` is adapted
+from it.
+
+```
+MIT License
+
+Copyright (c) 2026 OpenClaw Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Names and marks
 
 Gmail, Google Calendar and Google Meet are trademarks of Google LLC; Outlook, Microsoft Teams
