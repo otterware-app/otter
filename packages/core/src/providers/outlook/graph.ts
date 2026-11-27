@@ -14,6 +14,7 @@
 
 import { OUTLOOK_SIGNED_OUT_MESSAGE } from "../../microsoft.ts";
 import { platform, type AsyncContext } from "../../platform.ts";
+import { requestTimeout } from "../../pool.ts";
 import type { ErrorKind, Lane } from "../provider.ts";
 
 export const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -167,86 +168,101 @@ const IMMUTABLE_IDS = 'IdType="ImmutableId"';
 
 export const preferHeader = (prefer: string[] = []) => [IMMUTABLE_IDS, ...prefer].join(", ");
 
-async function request(
+/** `read`: what the answer's body is to its caller, read before its deadline ends. */
+async function request<T>(
   accountId: string,
   path: string,
-  init: GraphInit = {},
+  init: GraphInit,
+  read: (response: Response) => Promise<T>,
   retry = 0,
   attempt: { tokenRefreshed?: boolean; transient?: number } = {},
-): Promise<Response> {
+): Promise<T> {
   const background = tier().get() !== undefined;
   const release = await takeSlot(accountId);
-  let response: Response;
+  let timeout: ReturnType<typeof requestTimeout> | undefined;
   try {
-    const auth = platform().microsoft;
-    if (!auth) throw new Error("This app can't sign in to Outlook.");
-    const token = await auth.getAccessToken(accountId);
-    const body =
-      init.body === undefined
-        ? undefined
-        : typeof init.body === "string"
-          ? init.body
-          : JSON.stringify(init.body);
-    response = await fetch(path.startsWith("https://") ? path : `${GRAPH}${path}`, {
-      method: init.method ?? "GET",
-      body,
-      headers: {
-        ...init.headers,
-        Authorization: `Bearer ${token}`,
-        Prefer: preferHeader(init.prefer),
-        ...(body !== undefined ? { "Content-Type": init.contentType ?? "application/json" } : {}),
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
+    let response: Response;
+    try {
+      const auth = platform().microsoft;
+      if (!auth) throw new Error("This app can't sign in to Outlook.");
+      const token = await auth.getAccessToken(accountId);
+      const body =
+        init.body === undefined
+          ? undefined
+          : typeof init.body === "string"
+            ? init.body
+            : JSON.stringify(init.body);
+      timeout = requestTimeout(REQUEST_TIMEOUT_MS);
+      response = await fetch(path.startsWith("https://") ? path : `${GRAPH}${path}`, {
+        method: init.method ?? "GET",
+        body,
+        headers: {
+          ...init.headers,
+          Authorization: `Bearer ${token}`,
+          Prefer: preferHeader(init.prefer),
+          ...(body !== undefined ? { "Content-Type": init.contentType ?? "application/json" } : {}),
+        },
+        signal: timeout.signal,
+      });
+    } catch (err) {
+      release();
+      const tries = attempt.transient ?? 0;
+      if (background && tries < BACKGROUND_TRANSIENT_RETRIES && isNetworkError(err)) {
+        await sleep(2000 * 2 ** tries);
+        return request(accountId, path, init, read, retry, { ...attempt, transient: tries + 1 });
+      }
+      throw err;
+    }
     release();
-    const tries = attempt.transient ?? 0;
-    if (background && tries < BACKGROUND_TRANSIENT_RETRIES && isNetworkError(err)) {
-      await sleep(2000 * 2 ** tries);
-      return request(accountId, path, init, retry, { ...attempt, transient: tries + 1 });
-    }
-    throw err;
-  }
-  release();
-  if (response.ok) return response;
+    if (response.ok) return await read(response);
 
-  const text = await response.text().catch(() => "");
-  if (response.status === 401 && !attempt.tokenRefreshed) {
-    await platform().microsoft?.getAccessToken(accountId, { forceRefresh: true });
-    return request(accountId, path, init, retry, { ...attempt, tokenRefreshed: true });
-  }
-  const { code, message } = parseError(text);
-  if (!init.once && (response.status === 429 || response.status === 503)) {
-    const retryAfter = parseInt(response.headers.get("Retry-After") ?? "", 10) * 1000;
-    const wait = retryAfter > 0 ? retryAfter : Math.min(1000 * 2 ** retry, 32_000);
-    if (response.status === 429) {
-      cooldownUntil.set(accountId, Date.now() + Math.max(wait, COOLDOWN_MS));
+    const text = await response.text().catch(() => "");
+    if (response.status === 401 && !attempt.tokenRefreshed) {
+      await platform().microsoft?.getAccessToken(accountId, { forceRefresh: true });
+      return request(accountId, path, init, read, retry, { ...attempt, tokenRefreshed: true });
     }
-    const delay = background ? wait : FOREGROUND_RETRY_DELAYS_MS[retry];
-    if (delay !== undefined && (!background || retry < BACKGROUND_MAX_RETRIES)) {
-      await sleep(background ? delay : Math.max(delay, Math.min(retryAfter, 10_000)));
-      return request(accountId, path, init, retry + 1, attempt);
+    const { code, message } = parseError(text);
+    if (!init.once && (response.status === 429 || response.status === 503)) {
+      const retryAfter = parseInt(response.headers.get("Retry-After") ?? "", 10) * 1000;
+      const wait = retryAfter > 0 ? retryAfter : Math.min(1000 * 2 ** retry, 32_000);
+      if (response.status === 429) {
+        cooldownUntil.set(accountId, Date.now() + Math.max(wait, COOLDOWN_MS));
+      }
+      const delay = background ? wait : FOREGROUND_RETRY_DELAYS_MS[retry];
+      if (delay !== undefined && (!background || retry < BACKGROUND_MAX_RETRIES)) {
+        await sleep(background ? delay : Math.max(delay, Math.min(retryAfter, 10_000)));
+        return request(accountId, path, init, read, retry + 1, attempt);
+      }
     }
+    const tries = attempt.transient ?? 0;
+    if (background && response.status >= 500 && tries < BACKGROUND_TRANSIENT_RETRIES) {
+      await sleep(1000 * 2 ** tries);
+      return request(accountId, path, init, read, retry, { ...attempt, transient: tries + 1 });
+    }
+    throw new GraphError(response.status, code, message);
+  } finally {
+    timeout?.done();
   }
-  const tries = attempt.transient ?? 0;
-  if (background && response.status >= 500 && tries < BACKGROUND_TRANSIENT_RETRIES) {
-    await sleep(1000 * 2 ** tries);
-    return request(accountId, path, init, retry, { ...attempt, transient: tries + 1 });
-  }
-  throw new GraphError(response.status, code, message);
 }
 
 export async function graph<T = unknown>(
   accountId: string,
   path: string,
-  init?: GraphInit,
+  init: GraphInit = {},
 ): Promise<T> {
-  const text = await (await request(accountId, path, init)).text();
-  return (text ? JSON.parse(text) : {}) as T;
+  return request(accountId, path, init, async (response) => {
+    const text = await response.text();
+    return (text ? JSON.parse(text) : {}) as T;
+  });
 }
 
 export async function graphBytes(accountId: string, path: string): Promise<Uint8Array> {
-  return new Uint8Array(await (await request(accountId, path)).arrayBuffer());
+  return request(
+    accountId,
+    path,
+    {},
+    async (response) => new Uint8Array(await response.arrayBuffer()),
+  );
 }
 
 export type Page<T> = {
