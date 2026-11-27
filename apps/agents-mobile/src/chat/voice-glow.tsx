@@ -12,15 +12,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, {
-  Circle,
-  Defs,
-  LinearGradient,
-  Path,
-  RadialGradient,
-  Rect,
-  Stop,
-} from "react-native-svg";
+import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 
 /** The display's rounded corners, which the rim light follows. */
 const DISPLAY_RADIUS = 54;
@@ -36,7 +28,7 @@ const RIM = [
   { width: 110, opacity: 0.04 },
 ];
 /** Who is talking, told apart at a glance: the agent's light leans warm, yours cool. */
-const AGENT_VIOLET = { light: "#a131d4", dark: "#c04ee8" } as const;
+const AGENT_ORANGE = { light: "#e0622a", dark: "#f0874a" } as const;
 export const YOUR_BLUE = { light: "#0a8fce", dark: "#1aa3dc" } as const;
 /** Below this a meter hears the room, not a voice. */
 const QUIET = 0.05;
@@ -71,9 +63,9 @@ function rimPath(width: number, height: number, r: number): string {
 }
 
 /**
- * The light of a call, as Claude's voice mode shows who is talking: the agent's violet along the
- * display's edge, strongest at its foot, as it speaks; a blue haze rising from the foot as you do;
- * a soft glow in the middle while the agent works.
+ * The light of a call, as Claude's voice mode shows who is talking: the agent's orange along the
+ * display's edges, strongest in its foot's corners, as it speaks, breathing there softly while it
+ * works; your blue rising from the middle of the foot as you do.
  */
 export function VoiceGlow({
   agent,
@@ -87,20 +79,32 @@ export function VoiceGlow({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { scheme } = useTheme();
-  const violet = AGENT_VIOLET[scheme];
+  const orange = AGENT_ORANGE[scheme];
   const blue = YOUR_BLUE[scheme];
   // Phones with a home indicator have rounded displays; the others are square.
   const radius = insets.bottom > 0 ? DISPLAY_RADIUS : 0;
   const hazeHeight = height * 0.42;
 
+  const busy = useSharedValue(0);
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    busy.set(withTiming(working ? 1 : 0, { duration: working ? 500 : 350 }));
+  }, [working, busy]);
+  useEffect(() => {
+    breath.set(
+      withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) }), -1, true),
+    );
+  }, [breath]);
   const rim = useAnimatedStyle(() => ({
-    opacity: interpolate(agent.get(), [0, 0.6, 1], [0, 0.85, 1]),
+    opacity: Math.max(
+      interpolate(agent.get(), [0, 0.6, 1], [0, 0.85, 1]),
+      busy.get() * (0.2 + breath.get() * 0.25),
+    ),
   }));
   const haze = useAnimatedStyle(() => ({ opacity: you.get() }));
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <WorkingGlow shown={working} color={violet} />
       <Animated.View style={[styles.haze, { height: hazeHeight }, haze]}>
         <Svg width={width} height={hazeHeight}>
           <Defs>
@@ -108,7 +112,7 @@ export function VoiceGlow({
               id="haze"
               cx={width / 2}
               cy={hazeHeight}
-              rx={width}
+              rx={width * 0.62}
               ry={hazeHeight}
               gradientUnits="userSpaceOnUse"
             >
@@ -125,10 +129,10 @@ export function VoiceGlow({
           <Defs>
             <LinearGradient id="rim" x1="0" y1="1" x2="0" y2="0">
               {/* Brightest in the foot's corners, gone by the middle of the sides. */}
-              <Stop offset="0" stopColor={violet} stopOpacity={1} />
-              <Stop offset="0.12" stopColor={violet} stopOpacity={0.75} />
-              <Stop offset="0.35" stopColor={violet} stopOpacity={0.2} />
-              <Stop offset="0.55" stopColor={violet} stopOpacity={0} />
+              <Stop offset="0" stopColor={orange} stopOpacity={1} />
+              <Stop offset="0.12" stopColor={orange} stopOpacity={0.75} />
+              <Stop offset="0.35" stopColor={orange} stopOpacity={0.2} />
+              <Stop offset="0.55" stopColor={orange} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           {RIM.map((stroke) => (
@@ -147,48 +151,6 @@ export function VoiceGlow({
   );
 }
 
-const WORKING_SIZE = 300;
-
-/** A soft, breathing light in the middle while the agent works, as Claude's thinks. */
-function WorkingGlow({ shown, color }: { shown: boolean; color: string }) {
-  const presence = useSharedValue(0);
-  const breath = useSharedValue(0);
-  useEffect(() => {
-    presence.set(withTiming(shown ? 1 : 0, { duration: shown ? 500 : 350 }));
-  }, [shown, presence]);
-  useEffect(() => {
-    breath.set(
-      withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) }), -1, true),
-    );
-  }, [breath]);
-  const style = useAnimatedStyle(() => ({
-    opacity: presence.get() * (0.55 + breath.get() * 0.45),
-    transform: [{ scale: 0.88 + breath.get() * 0.14 }],
-  }));
-  return (
-    <View style={styles.middle}>
-      <Animated.View style={style}>
-        <Svg width={WORKING_SIZE} height={WORKING_SIZE}>
-          <Defs>
-            <RadialGradient id="working" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={color} stopOpacity={0.32} />
-              <Stop offset="0.5" stopColor={color} stopOpacity={0.12} />
-              <Stop offset="1" stopColor={color} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle
-            cx={WORKING_SIZE / 2}
-            cy={WORKING_SIZE / 2}
-            r={WORKING_SIZE / 2}
-            fill="url(#working)"
-          />
-        </Svg>
-      </Animated.View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   haze: { position: "absolute", left: 0, right: 0, bottom: 0 },
-  middle: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" },
 });
