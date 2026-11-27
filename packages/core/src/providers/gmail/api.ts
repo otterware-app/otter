@@ -15,7 +15,7 @@ import {
 } from "../../google.ts";
 import { logger } from "../../logger.ts";
 import { platform } from "../../platform.ts";
-import { mapPool } from "../../pool.ts";
+import { mapPool, requestTimeout } from "../../pool.ts";
 import { getAccount } from "../../services/account-store.ts";
 import {
   buildMime,
@@ -186,79 +186,84 @@ async function gmailFetch(
   const token = await google.getAccessToken(accountId);
   const background = isBackgroundWork();
 
-  let response: Response;
+  const timeout = requestTimeout(REQUEST_TIMEOUT_MS);
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        ...init.headers,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
-    const tries = attempt.transientRetries ?? 0;
-    if (background && tries < BACKGROUND_TRANSIENT_RETRIES && isNetworkError(err)) {
-      await sleep(2000 * 2 ** tries);
-      return gmailFetch(accountId, path, init, retryCount, {
-        ...attempt,
-        transientRetries: tries + 1,
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}${path}`, {
+        ...init,
+        headers: {
+          ...init.headers,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: timeout.signal,
       });
-    }
-    throw err;
-  }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    if (response.status === 401 && !attempt.tokenRefreshed) {
-      await platform().google.getAccessToken(accountId, { forceRefresh: true });
-      return gmailFetch(accountId, path, init, retryCount, { ...attempt, tokenRefreshed: true });
-    }
-    if (isRateLimited(response.status, body)) {
-      const retryAfter = parseInt(response.headers.get("Retry-After") ?? "", 10) * 1000;
-      const spent = spentLastMinute(accountId);
-      if (reportQuotaExceeded(accountId, retryAfter > 0 ? retryAfter : 0)) {
-        logger.info("gmail", `rate limited (${response.status}): ${gmailErrorMessage(body)}`, {
-          spentLastMinute: spent,
-          budgetNow: budgetOf(accountId),
+    } catch (err) {
+      const tries = attempt.transientRetries ?? 0;
+      if (background && tries < BACKGROUND_TRANSIENT_RETRIES && isNetworkError(err)) {
+        await sleep(2000 * 2 ** tries);
+        return gmailFetch(accountId, path, init, retryCount, {
+          ...attempt,
+          transientRetries: tries + 1,
         });
       }
-      const waitMs = background
-        ? retryAfter > 0
-          ? retryAfter
-          : Math.min(1000 * 2 ** retryCount, 32_000)
-        : retryAfter > 0 && retryCount < FOREGROUND_RETRY_DELAYS_MS.length
-          ? retryAfter
-          : FOREGROUND_RETRY_DELAYS_MS[retryCount];
-      const canRetry = background ? retryCount < BACKGROUND_MAX_RETRIES : waitMs !== undefined;
-      if (canRetry) {
-        await sleep(waitMs);
-        return gmailFetch(accountId, path, init, retryCount + 1, attempt);
-      }
+      throw err;
     }
-    const tries = attempt.transientRetries ?? 0;
-    if (
-      background &&
-      (response.status >= 500 || isHistoryPreconditionFailure(path, response.status, body)) &&
-      tries < BACKGROUND_TRANSIENT_RETRIES
-    ) {
-      await sleep(1000 * 2 ** tries);
-      return gmailFetch(accountId, path, init, retryCount, {
-        ...attempt,
-        transientRetries: tries + 1,
-      });
-    }
-    const error = new GmailApiError(response.status, response.statusText, body);
-    // Settings need their own optional scope (signatures); anything else needs Gmail itself.
-    if (isScopeMissing(response.status, body) && !path.startsWith("/settings/")) {
-      throw new Error(GMAIL_ACCESS_MISSING_MESSAGE, { cause: error });
-    }
-    throw error;
-  }
 
-  const text = await response.text();
-  return text ? JSON.parse(text) : {};
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      if (response.status === 401 && !attempt.tokenRefreshed) {
+        await platform().google.getAccessToken(accountId, { forceRefresh: true });
+        return gmailFetch(accountId, path, init, retryCount, { ...attempt, tokenRefreshed: true });
+      }
+      if (isRateLimited(response.status, body)) {
+        const retryAfter = parseInt(response.headers.get("Retry-After") ?? "", 10) * 1000;
+        const spent = spentLastMinute(accountId);
+        if (reportQuotaExceeded(accountId, retryAfter > 0 ? retryAfter : 0)) {
+          logger.info("gmail", `rate limited (${response.status}): ${gmailErrorMessage(body)}`, {
+            spentLastMinute: spent,
+            budgetNow: budgetOf(accountId),
+          });
+        }
+        const waitMs = background
+          ? retryAfter > 0
+            ? retryAfter
+            : Math.min(1000 * 2 ** retryCount, 32_000)
+          : retryAfter > 0 && retryCount < FOREGROUND_RETRY_DELAYS_MS.length
+            ? retryAfter
+            : FOREGROUND_RETRY_DELAYS_MS[retryCount];
+        const canRetry = background ? retryCount < BACKGROUND_MAX_RETRIES : waitMs !== undefined;
+        if (canRetry) {
+          await sleep(waitMs);
+          return gmailFetch(accountId, path, init, retryCount + 1, attempt);
+        }
+      }
+      const tries = attempt.transientRetries ?? 0;
+      if (
+        background &&
+        (response.status >= 500 || isHistoryPreconditionFailure(path, response.status, body)) &&
+        tries < BACKGROUND_TRANSIENT_RETRIES
+      ) {
+        await sleep(1000 * 2 ** tries);
+        return gmailFetch(accountId, path, init, retryCount, {
+          ...attempt,
+          transientRetries: tries + 1,
+        });
+      }
+      const error = new GmailApiError(response.status, response.statusText, body);
+      // Settings need their own optional scope (signatures); anything else needs Gmail itself.
+      if (isScopeMissing(response.status, body) && !path.startsWith("/settings/")) {
+        throw new Error(GMAIL_ACCESS_MISSING_MESSAGE, { cause: error });
+      }
+      throw error;
+    }
+
+    const text = await response.text();
+    return text ? JSON.parse(text) : {};
+  } finally {
+    timeout.done();
+  }
 }
 
 export async function listLabelNames(
