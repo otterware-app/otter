@@ -81,6 +81,19 @@ let early: TalkEvent[] = [];
 let stopListening: (() => void) | null = null;
 let stopLeaving: (() => void) | null = null;
 let onEnd: ((error: string | null, liveFor: number) => void) | undefined;
+/**
+ * How far the agent's voice has got through its words: each sound queued reaches the words heard
+ * when it came, at the time it will have played.
+ */
+let outputRate = 0;
+let playsUntil = 0;
+let agentChars = 0;
+let utteranceChars = 0;
+let playedChars = 0;
+let wordsAt = 0;
+let reaches: { at: number; chars: number }[] = [];
+/** Past this long with nothing playing and no new words, everything the voice has said has been heard. */
+const SAID_AFTER_MS = 400;
 
 const isCurrent = (id: string) => get().call?.id === id;
 
@@ -134,6 +147,7 @@ export async function startCall(
     mic = opened;
     mic.mute(now.muted);
     speaker = device.speak(started.outputRate);
+    outputRate = started.outputRate;
     set({ call: { ...now, talkId } });
     for (const event of early.splice(0)) {
       if (!isCurrent(call.id)) break;
@@ -173,6 +187,8 @@ function hangUp(error?: { title: string; body: string }): void {
   unsentMs = 0;
   spokeAt = -Infinity;
   early = [];
+  outputRate = playsUntil = agentChars = utteranceChars = playedChars = wordsAt = 0;
+  reaches = [];
   const ended = onEnd;
   onEnd = undefined;
   set({ call: null });
@@ -232,15 +248,28 @@ function onTalkEvent(event: TalkEvent): void {
     case "audio":
       const pcm = base64ToPcm(event.audio);
       speaker?.play(call.sound ? pcm : new Int16Array(pcm.length));
+      if (outputRate) {
+        playsUntil = Math.max(performance.now(), playsUntil) + (pcm.length / outputRate) * 1000;
+        reaches.push({ at: playsUntil, chars: agentChars });
+      }
       return;
     case "clear":
       speaker?.clear();
+      reaches = [];
+      playedChars = agentChars;
+      playsUntil = performance.now();
       return;
     case "mark":
       void markPlayed(call, call.talkId, event.name).catch(() => {});
       return;
     case "transcript":
       hearSpoken(call.chatId, event.role, event.text, event.final);
+      if (event.role === "assistant") {
+        const more = event.final ? event.text.trim().length - utteranceChars : event.text.length;
+        agentChars += Math.max(0, more);
+        wordsAt = performance.now();
+        utteranceChars = event.final ? 0 : utteranceChars + event.text.length;
+      }
       return;
     case "closed":
       hangUp(event.error ? { title: "The call ended", body: event.error } : undefined);
@@ -256,6 +285,16 @@ export function callLevels(): { you: number; agent: number; speaking: boolean } 
     agent: Math.min(1, played * 8),
     speaking: performance.now() - spokeAt < SPEAKING_HOLD_MS,
   };
+}
+
+/** How many of the agent's last words in the call its voice hasn't said yet: the end of what it's saying. */
+export function callUnsaid(): number {
+  const now = performance.now();
+  while (reaches.length > 0 && reaches[0].at <= now)
+    playedChars = Math.max(playedChars, reaches.shift()!.chars);
+  if (reaches.length === 0 && now - Math.max(playsUntil, wordsAt) > SAID_AFTER_MS)
+    playedChars = agentChars;
+  return Math.max(0, agentChars - playedChars);
 }
 
 /** While the agent works on a live call and its voice has long been quiet, a soft cue now and then. */

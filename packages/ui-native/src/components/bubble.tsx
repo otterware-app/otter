@@ -3,12 +3,12 @@ import { View, type ViewProps } from "react-native";
 import { useTheme, type Theme } from "../theme.ts";
 
 /**
- * A chat's two bubble colors (apps/ios-agents's Design.swift): the agent's grey, and yours, the
- * canvas with some of the accent in it (16 % light, 38 % dark).
+ * A chat's two greys: the agent's, for what sits on its side (its folds, chips, a failure), and
+ * yours, the bubble your messages are in, a shade off the canvas as in Claude's app.
  */
 const colors = {
-  light: { incoming: "#e6e6e6", outgoing: "#d9e5f9" },
-  dark: { incoming: "#242426", outgoing: "#233c61" },
+  light: { incoming: "#e6e6e6", outgoing: "#ededed" },
+  dark: { incoming: "#242426", outgoing: "#2c2c2e" },
 };
 
 export const bubbleColors = (theme: Theme) => colors[theme.scheme];

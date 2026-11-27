@@ -193,6 +193,44 @@ describe("a call", () => {
     expect(core.calls("agent:talkPlayed")).toEqual(played);
   });
 
+  it("knows which of the agent's words its voice hasn't said yet", async () => {
+    await connected();
+    const second = talk.pcmToBase64(new Int16Array(24_000));
+    core.emit({
+      talkId: "t1",
+      type: "transcript",
+      role: "assistant",
+      text: "Hello ",
+      final: false,
+    });
+    core.emit({ talkId: "t1", type: "audio", audio: second });
+    core.emit({ talkId: "t1", type: "transcript", role: "assistant", text: "there", final: false });
+    core.emit({ talkId: "t1", type: "audio", audio: second });
+    expect(talk.callUnsaid()).toBe(11);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(talk.callUnsaid()).toBe(5);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(talk.callUnsaid()).toBe(0);
+    core.emit({
+      talkId: "t1",
+      type: "transcript",
+      role: "assistant",
+      text: "Hello there",
+      final: true,
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+    core.emit({ talkId: "t1", type: "transcript", role: "assistant", text: "Next", final: false });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(talk.callUnsaid()).toBe(4);
+    core.emit({ talkId: "t1", type: "audio", audio: second });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(talk.callUnsaid()).toBe(0);
+    core.emit({ talkId: "t1", type: "transcript", role: "assistant", text: "Bye", final: false });
+    core.emit({ talkId: "t1", type: "audio", audio: second });
+    core.emit({ talkId: "t1", type: "clear" });
+    expect(talk.callUnsaid()).toBe(0);
+  });
+
   it("sends what the microphone hears, dropping it when the gateway falls behind", async () => {
     await connected();
     const never = new Promise(() => {});

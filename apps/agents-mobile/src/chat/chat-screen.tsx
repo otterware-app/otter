@@ -11,6 +11,7 @@ import { findTurns } from "@otter/client/agents/chat-find";
 import { isChatFileLink } from "@otter/client/agents/chat-links";
 import { agentNameOf, isDetached } from "@otter/client/agents/chat-list";
 import { layoutReplies } from "@otter/client/agents/chat-runs";
+import { useTalk } from "@otter/client/agents/talk";
 import {
   canReconnect,
   forkChat,
@@ -378,18 +379,23 @@ function Chat({ chat }: { chat: Conversation }) {
     [keyboard.padding, insets.bottom, atEnd],
   );
   const canFork = Boolean(provider?.forks && chat.sessionId) && canWrite;
+  const inCall = useTalk((s) => s.call?.chatId === id && s.call.liveAt !== null);
+  const lastTurn = turns.at(-1);
+  const speakingId =
+    inCall && lastTurn?.role === "assistant" && lastTurn.spoken ? lastTurn.id : null;
   const renderItem = useCallback(
     ({ item }: { item: Item }) => (
       <TranscriptItem
         item={item}
         name={name}
         live={item.row.kind === "reply" && item.row.live ? live : null}
+        speaking={item.row.turn.id === speakingId}
         found={foundId === item.row.turn.id}
         canFork={canFork}
         onFork={fork}
       />
     ),
-    [name, live, foundId, canFork, fork],
+    [name, live, speakingId, foundId, canFork, fork],
   );
   const beginFind = useCallback(() => setFinding(true), []);
 
@@ -528,6 +534,7 @@ type ItemProps = {
   item: Item;
   name: string;
   live: Live | null;
+  speaking: boolean;
   found: boolean;
   canFork: boolean;
   onFork: (turnId: string) => Promise<void>;
@@ -547,6 +554,7 @@ const unchanged = (a: ItemProps, b: ItemProps) => {
     x.continued === y.continued &&
     a.name === b.name &&
     a.live === b.live &&
+    a.speaking === b.speaking &&
     a.found === b.found &&
     a.canFork === b.canFork &&
     a.onFork === b.onFork &&
@@ -566,6 +574,7 @@ const TranscriptItem = memo(function TranscriptItem({
   item,
   name,
   live,
+  speaking,
   found,
   canFork,
   onFork,
@@ -598,6 +607,7 @@ const TranscriptItem = memo(function TranscriptItem({
           row={row}
           name={name}
           live={live}
+          speaking={speaking}
           continued={item.continued}
           found={found}
           canFork={canFork}
