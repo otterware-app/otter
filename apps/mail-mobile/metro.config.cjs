@@ -11,6 +11,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   // Otter Agents' expo-updates is in the workspace, so Sentry finds its JavaScript, whose native
   // module this app doesn't link: a release build would throw at launch.
   if (moduleName === "expo-updates") return { type: "empty" };
+  // Importing @expo/ui/swift-ui installs every Expo module on Reanimated's UI runtime, for SwiftUI
+  // state driven from worklets, which the app doesn't use: about 170 ms of the JavaScript thread
+  // while the first screen draws.
+  if (
+    moduleName === "./index.fx" &&
+    /@expo[\\/]ui[\\/]\w+[\\/]State[\\/]/.test(context.originModulePath)
+  )
+    return { type: "empty" };
   const from =
     moduleName === "@sentry/core" || moduleName.startsWith("@sentry/core/")
       ? { ...context, originModulePath: sdk }
