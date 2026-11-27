@@ -97,7 +97,7 @@ navigation and the tab bars in `src/frame/`.
 | `/agents/[id]/details`                                              | `chat/details-sheet.tsx`                                                          | sheet, half and full       |
 | `/agents/[id]/model`                                                | `chat/model-sheet.tsx`                                                            | sheet                      |
 | `/agents/[id]/queue`                                                | `chat/queue-sheet.tsx`                                                            | sheet, 65 % and full       |
-| `/agents/[id]/browser`, `/agents/[id]/talk`                         | `chat/browser-screen.tsx`, `talk-screen.tsx`                                      | full-screen cover          |
+| `/agents/[id]/browser`                                              | `chat/browser-screen.tsx`                                                         | full-screen cover          |
 | `/new?mail=<json>`                                                  | `chat/new-from-mail.tsx`                                                          | pushed (Otter Mail's link) |
 | `/scheduled`                                                        | `scheduled/scheduled-screen.tsx`                                                  | the Scheduled tab          |
 | `/scheduled/[id]`                                                   | `scheduled/task-screen.tsx`                                                       | pushed                     |
@@ -138,7 +138,7 @@ navigation and the tab bars in `src/frame/`.
   changes refuses to go without asking (SwiftUI's `interactiveDismissDisabled`):
   `usePreventRemove(changed, ({ repeat }) => …)` from expo-router catches Cancel and a swipe down.
   Clear `changed` before replaying the dismissal with `repeat()` or disabling prevention after a
-  save (`scheduled/task-editor.tsx`). A full-screen cover (`browser`, `talk`) has no header and
+  save (`scheduled/task-editor.tsx`). A full-screen cover (`browser`) has no header and
   pads its top by `useSafeAreaInsets().top`.
 - **Drawing**: `StyleSheet` or inline styles over `useTheme()`'s tokens (`theme.colors.*`,
   `theme.radius.*`, `theme.space[n]`), `alpha(color, opacity)` for a token at an opacity. All

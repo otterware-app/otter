@@ -1,3 +1,4 @@
+import type { ChatTurn } from "@otter/contracts/chats";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { listen } from "../bridge.ts";
@@ -54,6 +55,8 @@ export type Call = {
   /** When the agent's voice came on. */
   liveAt: number | null;
   muted: boolean;
+  /** The agent's voice is heard; off, the call goes on in silence. */
+  sound: boolean;
 };
 
 /** The call going on, in one chat at a time: there's one microphone. */
@@ -77,7 +80,7 @@ let spokeAt = -Infinity;
 let early: TalkEvent[] = [];
 let stopListening: (() => void) | null = null;
 let stopLeaving: (() => void) | null = null;
-let onEnd: ((error: string | null) => void) | undefined;
+let onEnd: ((error: string | null, liveFor: number) => void) | undefined;
 
 const isCurrent = (id: string) => get().call?.id === id;
 
@@ -89,7 +92,8 @@ export async function startCall(
   provider: ProviderKind,
   sessionId: string | null,
   audio: TalkAudio,
-  ended?: (error: string | null) => void,
+  /** The call ended, after being live this long (ms). */
+  ended?: (error: string | null, liveFor: number) => void,
 ): Promise<void> {
   endCall();
   const call: Call = {
@@ -99,6 +103,7 @@ export async function startCall(
     talkId: null,
     liveAt: null,
     muted: false,
+    sound: true,
   };
   onEnd = ended;
   set({ call });
@@ -155,8 +160,9 @@ export function endCall(): void {
 }
 
 function hangUp(error?: { title: string; body: string }): void {
-  const chatId = get().call?.chatId;
-  if (chatId) endSpoken(chatId);
+  const call = get().call;
+  if (call) endSpoken(call.chatId);
+  const liveFor = call?.liveAt ? Date.now() - call.liveAt : 0;
   stopLeaving?.();
   stopLeaving = null;
   mic?.stop();
@@ -170,7 +176,7 @@ function hangUp(error?: { title: string; body: string }): void {
   const ended = onEnd;
   onEnd = undefined;
   set({ call: null });
-  if (ended) ended(error?.body ?? null);
+  if (ended) ended(error?.body ?? null, liveFor);
   else if (error) host().notice({ tone: "error", ...error });
 }
 
@@ -179,6 +185,13 @@ export function muteCall(muted: boolean): void {
   if (!call) return;
   mic?.mute(muted);
   set({ call: { ...call, muted } });
+}
+
+/** Turns the agent's voice off or on: off, it plays silence, so the call keeps its timing. */
+export function soundCall(sound: boolean): void {
+  const call = get().call;
+  if (!call) return;
+  set({ call: { ...call, sound } });
 }
 
 function send(call: Call, talkId: string, pcm: Int16Array, level: number): void {
@@ -217,7 +230,8 @@ function onTalkEvent(event: TalkEvent): void {
     case "ready":
       return;
     case "audio":
-      speaker?.play(base64ToPcm(event.audio));
+      const pcm = base64ToPcm(event.audio);
+      speaker?.play(call.sound ? pcm : new Int16Array(pcm.length));
       return;
     case "clear":
       speaker?.clear();
@@ -233,12 +247,15 @@ function onTalkEvent(event: TalkEvent): void {
   }
 }
 
-/** How loud the call is now (0–1), and whether that's the agent speaking. */
-export function callLevel(): { level: number; speaking: boolean } {
+/** How loud each side of the call is now (0–1), and whether the agent is speaking. */
+export function callLevels(): { you: number; agent: number; speaking: boolean } {
   const played = speaker?.level() ?? 0;
   if (played > 0.01) spokeAt = performance.now();
-  if (performance.now() - spokeAt < SPEAKING_HOLD_MS) return { level: played, speaking: true };
-  return { level: get().call?.muted ? 0 : heardLevel, speaking: false };
+  return {
+    you: get().call?.muted ? 0 : Math.min(1, heardLevel * 8),
+    agent: Math.min(1, played * 8),
+    speaking: performance.now() - spokeAt < SPEAKING_HOLD_MS,
+  };
 }
 
 /** While the agent works on a live call and its voice is quiet, a soft cue now and then. */
@@ -263,10 +280,42 @@ export function callStatus(
   return call.muted ? "Muted" : "Listening";
 }
 
-/** How long the call has been live: "3:07". */
-export function callTime(since: number, now: number): string {
-  const seconds = Math.max(0, Math.floor((now - since) / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+/** What's being said in the call, as its caption shows it: the last thing said since `since`. */
+export function callCaption(
+  turns: readonly ChatTurn[],
+  since: number,
+): { id: string; speaker: "you" | "agent"; text: string; done: boolean } | null {
+  const said = turns.findLast((turn) => turn.spoken && (turn.startedAt ?? 0) >= since);
+  if (!said) return null;
+  const text = (
+    said.role === "user"
+      ? said.text
+      : (said.items?.map((item) => (item.kind === "text" ? item.text : "")).join("") ?? "")
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return null;
+  return {
+    id: said.id,
+    speaker: said.role === "user" ? "you" : "agent",
+    text,
+    done: said.finishedAt !== undefined,
+  };
+}
+
+/** The end of what someone is saying, as a caption shows it: its last `limit` characters, from a word. */
+export function captionTail(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const tail = text.slice(text.length - limit);
+  const whole = text[text.length - limit - 1] === " ";
+  return `…${whole ? tail : tail.slice(tail.indexOf(" ") + 1)}`;
+}
+
+/** How long a call lasted, as the card after it says: "1m 20s". */
+export function callLasted(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`;
 }
 
 export function pcmToBase64(pcm: Int16Array): string {

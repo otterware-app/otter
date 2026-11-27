@@ -14,7 +14,6 @@ export default function ChatsStack() {
         "agents/[id]/model": sheet(),
         "agents/[id]/queue": sheet([0.65, 1]),
         "agents/[id]/browser": cover,
-        "agents/[id]/talk": cover,
       }}
     />
   );
