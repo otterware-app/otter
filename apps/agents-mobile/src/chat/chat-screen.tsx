@@ -59,6 +59,7 @@ import {
   Pressable,
   TextInput,
   View,
+  type NativeScrollEvent,
   type ScrollViewProps,
 } from "react-native";
 import {
@@ -130,8 +131,17 @@ type Item = {
 
 const itemKey = (item: Item) => item.row.turn.id;
 const itemType = (item: Item) => item.row.kind;
-const startFromBottom = { startRenderingFromBottom: true, autoscrollToBottomThreshold: 0.2 };
-const findFromBottom = { startRenderingFromBottom: true };
+const fromBottom = { startRenderingFromBottom: true };
+
+/** The transcript is scrolled all the way down, give or take a few points. */
+const atBottom = ({
+  contentOffset,
+  contentSize,
+  contentInset,
+  layoutMeasurement,
+}: NativeScrollEvent) =>
+  contentSize.height + (contentInset?.bottom ?? 0) - contentOffset.y - layoutMeasurement.height <
+  24;
 
 /** A chat: the transcript under its header, and the composer over its end (ChatScreen.swift). */
 export function ChatScreen() {
@@ -185,6 +195,15 @@ function Chat({ chat }: { chat: Conversation }) {
   const footerHeight = useSharedValue(insets.bottom);
   const keyboard = useComposerPosition(insets.bottom, footerHeight);
   const atEnd = useSharedValue(true);
+  // What's written keeps the end in view until you scroll away from it, and again once you're
+  // back. Not FlashList's autoscroll: the flag it sets near the end outlives the drag that leaves it.
+  const following = useRef(true);
+  const dragging = useRef(false);
+  const settle = (e: { nativeEvent: NativeScrollEvent }) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    following.current = atBottom(e.nativeEvent);
+  };
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState("");
   const [findAt, setFindAt] = useState(0);
@@ -236,7 +255,10 @@ function Chat({ chat }: { chat: Conversation }) {
         layout.height > bottom - above || top < offset + above
           ? top - above
           : Math.max(offset, top + layout.height - bottom);
-      if (y !== offset) ref.scrollToOffset({ offset: y, animated, skipFirstItemOffset: true });
+      if (y === offset) return;
+      // What's found stays in view: what's written next doesn't pull the chat back to its end.
+      following.current = false;
+      ref.scrollToOffset({ offset: y, animated, skipFirstItemOffset: true });
     },
     [covered, headerHeight],
   );
@@ -273,6 +295,7 @@ function Chat({ chat }: { chat: Conversation }) {
         if (ref?.getLayout(foundIndex)?.isHeightMeasured) {
           scrollToTurn(foundIndex, findAnimated.current);
         } else {
+          following.current = false;
           void ref?.scrollToIndex({ index: foundIndex, animated: false }).then(correct);
         }
       });
@@ -292,6 +315,7 @@ function Chat({ chat }: { chat: Conversation }) {
     if (arrived.current || finding || foundIndex < 0 || !chat.loaded) return;
     const timer = setTimeout(() => {
       arrived.current = true;
+      following.current = false;
       void list.current?.scrollToIndex({ index: foundIndex, animated: true, viewPosition: 0.5 });
     }, 250);
     return () => clearTimeout(timer);
@@ -387,7 +411,18 @@ function Chat({ chat }: { chat: Conversation }) {
             contentInsetAdjustmentBehavior="automatic"
             contentContainerStyle={{ paddingTop: 12 + (finding ? FIND_BAR : 0) }}
             initialScrollIndex={items.length > 0 ? items.length - 1 : undefined}
-            maintainVisibleContentPosition={finding ? findFromBottom : startFromBottom}
+            maintainVisibleContentPosition={fromBottom}
+            onContentSizeChange={() => {
+              if (following.current && !finding) list.current?.scrollToEnd({ animated: false });
+            }}
+            onScrollBeginDrag={() => {
+              dragging.current = true;
+              following.current = false;
+            }}
+            onScrollEndDrag={(e) => {
+              if (!e.nativeEvent.velocity?.y) settle(e);
+            }}
+            onMomentumScrollEnd={settle}
           />
         </Footer>
       </ChatTextContext>
@@ -411,7 +446,10 @@ function Chat({ chat }: { chat: Conversation }) {
         {turns.length > 0 && !voice ? (
           <JumpToLatest
             atEnd={atEnd}
-            onPress={() => list.current?.scrollToEnd({ animated: true })}
+            onPress={() => {
+              following.current = true;
+              list.current?.scrollToEnd({ animated: true });
+            }}
           />
         ) : null}
         <View
