@@ -319,7 +319,7 @@ describe("what the call bar says", () => {
   });
 
   it("says how long a call lasted", () => {
-    expect(talk.callLasted(80_400)).toBe("1 min 20 s");
-    expect(talk.callLasted(200)).toBe("1 s");
+    expect(talk.callLasted(80_400)).toBe("1m 20s");
+    expect(talk.callLasted(200)).toBe("1s");
   });
 });

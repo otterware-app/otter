@@ -19,6 +19,7 @@ import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Text } from "@otter/ui-native/components/text";
 import { haptics } from "@otter/ui-native/haptics";
 import { alpha, useTheme } from "@otter/ui-native/theme";
+import { router } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -95,8 +96,8 @@ export function useVoiceGreeting(chatId: string): string | null {
 }
 
 /**
- * The microphone, as Claude's: a quiet disc that turns blue as you speak, and the inverse disc,
- * struck through, while it's off.
+ * The microphone, as Claude's: a quiet disc that turns blue as you speak, struck through in red
+ * while it's off.
  */
 function MicButton({
   muted,
@@ -112,9 +113,8 @@ function MicButton({
   const theme = useTheme();
   const idle = theme.scheme === "dark" ? "#2f2f2f" : "#ececec";
   const lit = YOUR_BLUE[theme.scheme];
-  const off = theme.colors.foreground;
   const fill = useAnimatedStyle(() => ({
-    backgroundColor: muted ? off : interpolateColor(you.get(), [0, 1], [idle, lit]),
+    backgroundColor: muted ? idle : interpolateColor(you.get(), [0, 1], [idle, lit]),
   }));
   const white = useAnimatedStyle(() => ({ opacity: muted ? 0 : you.get() }));
   return (
@@ -137,7 +137,7 @@ function MicButton({
         style={[styles.mic, { borderColor: alpha(theme.colors.foreground, 0.12) }, fill]}
       >
         {muted ? (
-          <Icon name="mic.slash.fill" size={26} weight="medium" color="canvas" />
+          <Icon name="mic.slash.fill" size={26} weight="medium" color="error" />
         ) : (
           <>
             <Icon name="mic.fill" size={26} weight="medium" />
@@ -155,11 +155,13 @@ function RoundButton({
   icon,
   label,
   solid = false,
+  disabled = false,
   onPress,
 }: {
   icon: IconName;
   label: string;
   solid?: boolean;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const theme = useTheme();
@@ -167,12 +169,14 @@ function RoundButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       hitSlop={6}
       onPress={() => {
         haptics.tap();
         onPress();
       }}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      style={({ pressed }) => ({ opacity: disabled ? 0.4 : pressed ? 0.7 : 1 })}
     >
       {solid ? (
         <View style={[styles.control, { backgroundColor: theme.colors.foreground }]}>
@@ -249,8 +253,8 @@ export function VoiceMode({ chatId }: { chatId: string }) {
           pointerEvents="none"
           style={[styles.notice, { top: headerHeight + 12 }]}
         >
-          <Text size="body" color="mutedForeground">
-            Your microphone is off
+          <Text size="body" color="error">
+            Microphone off
           </Text>
         </Animated.View>
       ) : null}
@@ -292,10 +296,12 @@ export function VoiceMode({ chatId }: { chatId: string }) {
           <MicButton muted={muted} ready={live} you={youGlow} onPress={() => muteCall(!muted)} />
         </View>
         <View style={styles.controls}>
+          <ModelChip chatId={chatId} />
           <View style={{ flex: 1 }} />
           <RoundButton
             icon={sound ? "speaker.wave.2.fill" : "speaker.slash.fill"}
             label={sound ? "Turn the sound off" : "Turn the sound on"}
+            disabled={!live}
             onPress={() => soundCall(!sound)}
           />
           <RoundButton
@@ -310,6 +316,28 @@ export function VoiceMode({ chatId }: { chatId: string }) {
         </View>
       </View>
     </Animated.View>
+  );
+}
+
+/** Who answers and on what model, as Claude's call keeps it at hand: tap to choose another. */
+function ModelChip({ chatId }: { chatId: string }) {
+  const agent = useChatAgent(chatId);
+  if (!agent.usable) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Model"
+      hitSlop={6}
+      onPress={() => {
+        haptics.tap();
+        router.push({ pathname: "/agents/[id]/model", params: { id: chatId } });
+      }}
+    >
+      <Glass interactive style={styles.chip}>
+        <AgentAvatar agent={agent.id} gatewayAgent={agent.gatewayAgent} size={20} />
+        <Icon name="chevron.up.chevron.down" size={9} weight="semibold" color="mutedForeground" />
+      </Glass>
+    </Pressable>
   );
 }
 
@@ -389,6 +417,14 @@ const styles = StyleSheet.create({
   lit: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" },
   controls: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
   control: { width: CONTROL, height: CONTROL, alignItems: "center", justifyContent: "center" },
+  chip: {
+    height: CONTROL,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 14,
+    paddingRight: 16,
+  },
   ended: { alignItems: "center", paddingBottom: 10 },
   endedCard: {
     flexDirection: "row",

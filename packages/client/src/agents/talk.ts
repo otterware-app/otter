@@ -311,11 +311,11 @@ export function captionTail(text: string, limit: number): string {
   return `…${whole ? tail : tail.slice(tail.indexOf(" ") + 1)}`;
 }
 
-/** How long a call lasted, as the card after it says: "1 min 20 s". */
+/** How long a call lasted, as the card after it says: "1m 20s". */
 export function callLasted(ms: number): string {
   const seconds = Math.max(1, Math.round(ms / 1000));
   const minutes = Math.floor(seconds / 60);
-  return minutes > 0 ? `${minutes} min ${seconds % 60} s` : `${seconds} s`;
+  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`;
 }
 
 export function pcmToBase64(pcm: Int16Array): string {
