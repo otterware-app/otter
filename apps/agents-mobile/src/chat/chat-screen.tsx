@@ -686,6 +686,7 @@ function Placeholder({ chat, hydrating }: { chat: Conversation; hydrating: boole
         paddingBottom: 80,
       }}
     >
+      {greeting ? <AgentAvatar agent={agent} gatewayAgent={gatewayAgent} size={28} /> : null}
       <Text size="2xl" weight="medium" style={{ fontSize: 26, letterSpacing: -0.5 }}>
         {greeting ?? "What can I help with?"}
       </Text>

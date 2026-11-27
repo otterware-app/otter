@@ -12,6 +12,7 @@ import {
   useTalk,
   useWorkingCue,
 } from "@otter/client/agents/talk";
+import { useOtterAccount } from "@otter/client/otter-account";
 import { phoneTalkAudio } from "@otter/mobile/talk-audio";
 import { Glass } from "@otter/ui-native/components/glass";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
@@ -87,7 +88,10 @@ export function leaveVoice(chatId: string): void {
 export function useVoiceGreeting(chatId: string): string | null {
   const open = useVoice((s) => s.open?.chatId === chatId && !s.open.problem);
   const live = useTalk((s) => s.call?.chatId === chatId && s.call.liveAt !== null);
-  return open ? (live ? "Go ahead, I'm listening" : "Connecting…") : null;
+  const first = useOtterAccount()?.user?.name?.split(" ")[0];
+  if (!open) return null;
+  if (!live) return "Hold tight, connecting…";
+  return first ? `Let's talk, ${first}` : "Let's talk";
 }
 
 /**
@@ -288,12 +292,12 @@ export function VoiceMode({ chatId }: { chatId: string }) {
           <MicButton muted={muted} ready={live} you={youGlow} onPress={() => muteCall(!muted)} />
         </View>
         <View style={styles.controls}>
+          <View style={{ flex: 1 }} />
           <RoundButton
             icon={sound ? "speaker.wave.2.fill" : "speaker.slash.fill"}
             label={sound ? "Turn the sound off" : "Turn the sound on"}
             onPress={() => soundCall(!sound)}
           />
-          <View style={{ flex: 1 }} />
           <RoundButton
             icon="xmark"
             solid
