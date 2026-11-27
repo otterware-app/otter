@@ -50,9 +50,17 @@ export async function startMobileCore(options: {
   for (const [key, value] of Object.entries(options.initialStorage ?? {})) {
     if (kv.getItemSync(key) === null) kv.setItemSync(key, value);
   }
+  // Screens read preferences as they render (`useSyncExternalStore`): from memory, not SQLite.
+  const kept = new Map<string, string | null>();
   const storage = {
-    get: (key: string) => kv.getItemSync(key),
-    set: (key: string, value: string) => kv.setItemSync(key, value),
+    get(key: string) {
+      if (!kept.has(key)) kept.set(key, kv.getItemSync(key));
+      return kept.get(key)!;
+    },
+    set(key: string, value: string) {
+      kv.setItemSync(key, value);
+      kept.set(key, value);
+    },
   };
   let platform = phonePlatform({
     home,
