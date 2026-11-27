@@ -1,6 +1,7 @@
 // A delta removal can mean a move: look up the immutable message id before deleting its cached copy.
 
 import { logger } from "../../logger.ts";
+import { yieldThread } from "../../pool.ts";
 import * as store from "../../services/mail-store.ts";
 import type { MessageSummary } from "../../types.ts";
 import { hasPendingLabelWrites } from "../../services/pending-label-writes.ts";
@@ -27,6 +28,20 @@ import {
 } from "./messages.ts";
 
 const PAGE_SIZE = 100;
+const WRITE_BATCH = 25;
+
+async function writeSummaries(
+  accountId: string,
+  summaries: MessageSummary[],
+  ctx: SyncContext,
+  counted = false,
+): Promise<void> {
+  for (let i = 0; i < summaries.length; i += WRITE_BATCH) {
+    if (i > 0) await yieldThread();
+    ctx.assertActive();
+    store.upsertMessages(accountId, summaries.slice(i, i + WRITE_BATCH), { counted });
+  }
+}
 
 type FolderDelta = { link: string; done: boolean; label?: string | null; unlisted?: string[] };
 type DeltaState = Record<string, FolderDelta>;
@@ -95,13 +110,14 @@ async function refreshFolders(
   accountId: string,
   mailChanged: boolean,
   ctx: SyncContext,
+  force = false,
 ): Promise<Mailbox> {
   const before = mailboxOf(accountId);
   let state = folderRefresh.get(accountId);
   if (!state) folderRefresh.set(accountId, (state = { at: 0, dirty: true }));
   if (mailChanged) state.dirty = true;
   const age = Date.now() - state.at;
-  if (before && age < FOLDERS_MAX_AGE_MS && !(state.dirty && age > FOLDERS_MIN_GAP_MS)) {
+  if (!force && before && age < FOLDERS_MAX_AGE_MS && !(state.dirty && age > FOLDERS_MIN_GAP_MS)) {
     return before;
   }
   const mailbox = await readMailbox(accountId);
@@ -168,6 +184,11 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
             ? [{ kind: "labelsAdded" as const, id, labelIds: [folder.labelId] }]
             : []),
         ]),
+        { counted: false },
+      );
+      store.recountLabels(
+        accountId,
+        [had, folder.labelId].filter((l) => l !== null),
       );
       ctx.bumpRevision();
     }
@@ -179,7 +200,11 @@ async function relabelFolders(accountId: string, mailbox: Mailbox, ctx: SyncCont
 
 export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<void> {
   ctx.update({ phase: mailboxOf(accountId) ? "incremental" : "labels" });
+  const lastRead = folderRefresh.get(accountId)?.at;
   const mailbox = await refreshFolders(accountId, false, ctx);
+  // Counts just read from Outlook already hold what the deltas below move them by: read them
+  // again after, rather than count those changes twice.
+  const readNow = folderRefresh.get(accountId)?.at !== lastRead;
   await relabelFolders(accountId, mailbox, ctx);
   await repairRegularIds(accountId, ctx);
   dropSkippedFolderMail(accountId, ctx);
@@ -198,7 +223,7 @@ export async function syncOutlook(accountId: string, ctx: SyncContext): Promise<
   }
   if (changed) {
     ctx.bumpRevision();
-    await refreshFolders(accountId, true, ctx);
+    await refreshFolders(accountId, true, ctx, readNow);
   }
   await ctx.newMail(added.filter((m) => m.labelIds.includes("INBOX")));
 }
@@ -210,10 +235,12 @@ async function peekInbox(accountId: string, mailbox: Mailbox, ctx: SyncContext):
     `/me/mailFolders/${encodeURIComponent(inbox)}/messages?$top=50&$orderby=receivedDateTime desc&$select=${SUMMARY_FIELDS}`,
   );
   ctx.assertActive();
-  store.upsertMessages(
+  await writeSummaries(
     accountId,
     (page.value ?? []).map((m) => toSummary(accountId, m)),
+    ctx,
   );
+  ctx.assertActive();
   store.recountLabels(accountId, ["INBOX", "UNREAD", "STARRED", "IMPORTANT"]);
   store.setKv(peekedKey(accountId), "1");
   ctx.bumpRevision();
@@ -268,6 +295,22 @@ async function followDelta(
   const summaries = (
     await getApiMessages(accountId, [...new Set(present.map((m) => m.id))], SUMMARY_FIELDS, true)
   ).map((m) => toSummary(accountId, m));
+  const presentIds = new Set(present.map((m) => m.id));
+  const gone = removed.filter((id) => !presentIds.has(id));
+  const ops: store.HistoryOp[] = [];
+  const moved: MessageSummary[] = [];
+  if (gone.length > 0) {
+    const found = new Map(
+      (await getApiMessages(accountId, gone, SUMMARY_FIELDS, true)).map((m) => [m.id, m]),
+    );
+    for (const id of gone) {
+      const message = found.get(id);
+      if (!message || !isSyncedFolder(accountId, message.parentFolderId)) {
+        ops.push({ kind: "deleted", id });
+      } else moved.push(toSummary(accountId, message));
+    }
+  }
+
   ctx.assertActive();
   const fresh = new Set(
     store.filterUnknownIds(
@@ -275,35 +318,14 @@ async function followDelta(
       summaries.map((m) => m.id),
     ),
   );
-  const touched = new Set<string>();
-  for (const m of summaries) {
-    for (const l of store.getMessageLabelIds(accountId, m.id) ?? []) touched.add(l);
-  }
-  store.upsertMessages(accountId, summaries);
-  for (const m of summaries) for (const l of m.labelIds) touched.add(l);
-
-  const gone = removed.filter((id) => !present.some((m) => m.id === id));
-  if (gone.length > 0) {
-    const found = new Map(
-      (await getApiMessages(accountId, gone, SUMMARY_FIELDS, true)).map((m) => [m.id, m]),
-    );
+  await writeSummaries(accountId, summaries, ctx, true);
+  for (let i = 0; i < ops.length; i += WRITE_BATCH) {
+    if (i > 0) await yieldThread();
     ctx.assertActive();
-    const ops: store.HistoryOp[] = [];
-    const moved: MessageSummary[] = [];
-    for (const id of gone) {
-      const message = found.get(id);
-      if (!message || !isSyncedFolder(accountId, message.parentFolderId)) {
-        ops.push({ kind: "deleted", id });
-      } else moved.push(toSummary(accountId, message));
-    }
-    for (const id of gone) {
-      for (const l of store.getMessageLabelIds(accountId, id) ?? []) touched.add(l);
-    }
-    store.applyHistoryChanges(accountId, ops);
-    store.upsertMessages(accountId, moved);
-    for (const m of moved) for (const l of m.labelIds) touched.add(l);
+    store.applyHistoryChanges(accountId, ops.slice(i, i + WRITE_BATCH));
   }
-  store.recountLabels(accountId, [...touched]);
+  await writeSummaries(accountId, moved, ctx, true);
+  ctx.assertActive();
   setFolderDelta(accountId, folder.id, {
     ...readDelta(accountId)[folder.id],
     link: deltaLink,
@@ -359,7 +381,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
           summaries.map((m) => m.id),
         ),
       );
-      store.upsertMessages(accountId, summaries);
+      await writeSummaries(accountId, summaries, ctx);
       count += unknown.size;
       next = page["@odata.nextLink"];
       const before = readDelta(accountId)[folder.id] ?? { label: folder.labelId };
@@ -379,6 +401,7 @@ export async function backfillOutlook(accountId: string, ctx: SyncContext): Prom
           unlisted = undefined;
         }
       }
+      ctx.assertActive();
       setFolderDelta(accountId, folder.id, {
         ...before,
         link: next ?? page["@odata.deltaLink"] ?? firstDelta(folder.id),

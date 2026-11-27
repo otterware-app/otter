@@ -18,3 +18,17 @@ export async function mapPool<T, R>(
 
 /** Lets the rest of the thread run (on the phone, the interface) between stretches of work. */
 export const yieldThread = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * A request's deadline, as `AbortSignal.timeout`, whose timer ends with `done`: otherwise it
+ * stays for the whole timeout after the answer, and on the phone React Native checks every
+ * pending timer at each frame.
+ */
+export function requestTimeout(ms: number): { signal: AbortSignal; done: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("The request timed out.", "TimeoutError")),
+    ms,
+  );
+  return { signal: controller.signal, done: () => clearTimeout(timer) };
+}

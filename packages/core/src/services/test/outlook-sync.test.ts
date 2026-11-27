@@ -488,9 +488,9 @@ async function boot() {
   const status = () => mailSync.getSyncStatus(account.id);
   const labelsOf = (id: string) => mailStore.getAllMessageLabels(account.id).get(id);
   const sync = async () => {
-    const before = status().lastSyncAt;
     mailSync.syncAccount(account.id, { force: true, trigger: "push" });
-    await until(() => status().lastSyncAt !== before && !status().syncing, "a sync");
+    expect(status().syncing).toBe(true);
+    await until(() => !status().syncing, "a sync");
   };
   const invoke = (channel: string, params: unknown) => registeredHandlers().get(channel)!(params);
   return { mailStore, status, labelsOf, sync, invoke, provider: providerFor(account.id) };
@@ -891,7 +891,14 @@ describe("Outlook sync", { timeout: 15_000 }, () => {
 
       failedTranslations = true;
       deliver("new", "inbox");
-      await sync();
+      const before = status().lastSyncAt!;
+      const clock = vi.spyOn(Date, "now").mockReturnValue(before);
+      try {
+        await sync();
+        expect(status().lastSyncAt).toBe(before);
+      } finally {
+        clock.mockRestore();
+      }
       expect(status().error).toBeNull();
       expect(labelsOf("new")).toEqual(["INBOX", "UNREAD"]);
       expect(restRows(mailStore)).toHaveLength(2);

@@ -75,8 +75,7 @@ Ecological Research Center, U.S. Geological Survey. Public domain. The picture b
 ## Inter
 
 https://github.com/rsms/inter, SIL Open Font License 1.1, Copyright (c) 2016 The Inter Project
-Authors. Bundled in the web and desktop app (`@fontsource-variable/inter`), the iPhone apps
-(`apps/ios/OtterMail/Resources/Fonts/`, with its license) and the Expo apps
+Authors. Bundled in the web and desktop app (`@fontsource-variable/inter`), the Expo iPhone apps
 (`packages/ui-native/fonts/`, with its license).
 
 ## Geist and Geist Mono

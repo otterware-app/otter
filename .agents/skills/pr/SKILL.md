@@ -36,7 +36,7 @@ motion and interaction. Without them it isn't ready for review.
 - **Capture** on the made-up mailbox (`pnpm dev:fake`, the `test-otter` skill) at a
   1600x1000 viewport, light and dark. When it needs real Gmail, Outlook or IMAP, use the demo
   mailboxes (`pnpm dev:demo`); never a real account. iPhone changes: the simulator
-  (`pnpm dev:ios`), light and dark.
+  (`pnpm dev:mobile:mail`), light and dark.
 - **Show the change**: before and after where something changed, the new state where something
   was added, and the edge cases worth seeing (empty, error, many).
 - **Recordings** for motion, drag and drop, or a flow over several screens: the Browser panel's
@@ -59,5 +59,5 @@ motion and interaction. Without them it isn't ready for review.
 
 ## After
 
-Link the PR and say what's left: checks, review, the iPhone release if `apps/ios` changed.
+Link the PR and say what's left: checks, review, the iPhone release if an iPhone app changed.
 Merges are normal merge commits, not squashes.

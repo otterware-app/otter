@@ -16,14 +16,14 @@ env:
   ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
 jobs:
-  # The Swift jobs need macOS runners, which the Mac release waits on too: run
+  # The Xcode jobs need macOS runners, which the Mac release waits on too: run
   # them only when what they build changed (or this workflow did).
   changes:
     name: Changes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      iphone: ${{ steps.filter.outputs.iphone }}
+      mail: ${{ steps.filter.outputs.mail }}
       agents: ${{ steps.filter.outputs.agents }}
       translator: ${{ steps.filter.outputs.translator }}
       hermes: ${{ steps.filter.outputs.hermes }}
@@ -53,7 +53,7 @@ jobs:
             *) everything ;;
           esac
           {
-            echo "iphone=$(changed '^(apps/ios/|packages/shared/|package\.json$|scripts/export-ios-resources\.ts$|\.github/workflows/ci\.yml$)')"
+            echo "mail=$(changed '^(apps/mail-mobile/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/translation/|patches/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
             echo "agents=$(changed '^(apps/agents-mobile/|packages/(core|client|contracts|mobile|ui-native|shared)/|extensions/(hermes|openclaw|varys|claude|codex)/|package\.json$|pnpm-(lock\.yaml|workspace\.yaml)$|\.github/(actions/setup/|workflows/ci\.yml$))')"
             echo "translator=$(changed '^(native/translator/|\.github/actions/select-xcode/|\.github/workflows/ci\.yml$)')"
             echo "hermes=$(changed '^(extensions/hermes/gateway/|\.github/workflows/ci\.yml$)')"
@@ -158,38 +158,35 @@ jobs:
       - name: Build translator (Apple Silicon)
         run: swift build -c release --package-path native/translator --arch arm64
 
-  # The iPhone apps are built here, tests and all, and the tests aren't run: a simulator's
-  # first boot takes most of ten minutes on this runner (3 cores, 7 GB), for seconds of tests,
-  # and the Mac has no other way to run them. As a Mac Catalyst build, each app uses an API
-  # that doesn't exist there; as the iPhone app itself ("Designed for iPad"), macOS installs
-  # only one signed with a provisioning profile. Run them on a Mac (each app's README).
-  iphone:
-    name: iPhone (Swift)
+  mail:
+    name: iPhone, Otter Mail
     needs: changes
-    if: needs.changes.outputs.iphone == 'true'
+    if: needs.changes.outputs.mail == 'true'
     runs-on: xcode-27
-    timeout-minutes: 15
+    timeout-minutes: 35
+    env:
+      OTTER_APP_VARIANT: production
+      EXPO_NO_DOTENV: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
-          package-manager-cache: false
+      - name: Setup Expo workspace
+        uses: ./.github/actions/setup
 
-      - name: Export shared resources
-        run: node scripts/export-ios-resources.ts
-
-      # Simulators on the runner are Apple silicon: arm64 alone, not the Intel slice too.
-      - name: Build app, extension and tests
+      - name: Generate native project
+        working-directory: apps/mail-mobile
         run: |
-          xcodebuild -version
-          xcodebuild -project apps/ios/OtterMail.xcodeproj -scheme OtterMail \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$RUNNER_TEMP/otter-ios-build" \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build-for-testing
+          pnpm exec expo prebuild --platform ios --clean --no-install
+          cd ios
+          pod install
+
+      - name: Build Expo app and extension
+        run: |
+          xcodebuild -workspace apps/mail-mobile/ios/OtterMail.xcworkspace -scheme OtterMail \
+            -configuration Release -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/otter-mail-build" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build
 
   # The Expo app's Xcode build takes ~20 minutes, mostly React Native's pods. Most changes are
   # JavaScript, which Checks covers: build only when the native app's fingerprint

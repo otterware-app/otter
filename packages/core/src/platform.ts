@@ -20,6 +20,8 @@ export type FileInfo = { name: string; size: number; modifiedAt: number };
 export type PickedFile = { name: string; mimeType: string; bytes: Uint8Array };
 
 export interface GoogleAuth {
+  /** The large fake mailbox runs without Gmail quota delays during benchmarks. */
+  bypassGmailQuota?: (accountId: string) => boolean;
   /** Reads stored sign-ins; call once at startup so `isSignedIn` answers right away. */
   load(): Promise<void>;
   addAccount(loginHint?: string): Promise<MailAccount>;

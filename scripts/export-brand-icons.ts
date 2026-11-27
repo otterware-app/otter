@@ -6,7 +6,7 @@ import { chromium } from "playwright-core";
 
 const root = NodePath.resolve(import.meta.dirname, "..");
 const at = (file: string) => NodePath.join(root, file);
-const catalog = "apps/ios/OtterMail/Assets.xcassets";
+const catalog = "apps/mail-mobile/assets/Assets.xcassets";
 const agentsCatalog = "apps/agents-mobile/assets";
 
 const IVORY = "#f8f5ec";
@@ -194,7 +194,7 @@ try {
   write("apps/web/src/main/assets/otter-icon.png", await png(square(light), 192));
 
   /** An iPhone app's icons: releases wear its mark on ivory (dark and tinted too), Debug builds the blueprint. */
-  async function iphoneIcons(catalog: string, mark: string, welcome: string) {
+  async function iphoneIcons(catalog: string, mark: string, welcome?: string) {
     const wearing = (a: Art): Art => ({ ...a, mark });
     const appIcon = `${catalog}/AppIcon.appiconset`;
     write(`${appIcon}/icon-1024.png`, await png(square(wearing(light)), 1024));
@@ -217,7 +217,7 @@ try {
       })),
       info,
     });
-    write(welcome, await png(square(wearing(light)), 512));
+    if (welcome) write(welcome, await png(square(wearing(light)), 512));
 
     const devIcon = `${catalog}/AppIconDev.appiconset`;
     write(`${devIcon}/icon-1024.png`, await png(square(wearing(dev)), 1024));
@@ -228,7 +228,7 @@ try {
       info,
     });
   }
-  await iphoneIcons(catalog, MAIL, `${catalog}/OtterMark.imageset/otter-mark.png`);
+  await iphoneIcons(catalog, MAIL, "apps/mail-mobile/src/account/otter-mark.png");
   await iphoneIcons(agentsCatalog, AGENT, "apps/agents-mobile/src/account/otter-mark.png");
 } finally {
   await browser.close();

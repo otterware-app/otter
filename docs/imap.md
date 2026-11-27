@@ -170,9 +170,9 @@ syncs. The limits are in infra/relay/README.md.
 
 ## The iPhone app
 
-Its own Swift implementation of the same design: a `MailProvider` protocol with the existing
-Gmail client and an IMAP one (Network.framework, TLS by the system), IDLE while the app is in
-the foreground, and the same folder ↔ label mapping, so its lists and drawer work unchanged.
+Otter Mail for iPhone runs this provider in core, as the other apps do. Its socket is the
+app's native module (`packages/mobile/ios/MailSocket.swift`: Network.framework, TLS by the
+system), the Platform's `connect()`.
 
 ## Outlook
 

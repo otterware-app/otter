@@ -5,7 +5,8 @@
  * scripted agents and their chats, so the app runs with no Google, Microsoft or Otter account,
  * no agent and no network. Their state is a file in the app's own files, so it changes as the app
  * works.
- * Development only: both shells import this lazily, behind their dev switch.
+ * Development, and Otter Mail for iPhone's demo mailbox: the shells import this lazily, behind
+ * their dev switch (the iPhone's demo, `@otter/mobile/demo`).
  */
 import type { Platform } from "../platform.ts";
 import { SESSION_SECRET } from "../services/otter-account.ts";
@@ -23,10 +24,17 @@ export { FAKE_RELAY_URL };
 export { withFakeAgents } from "./agent.ts";
 /** For tests that drive one service alone. */
 export { demoMicrosoftAuth, installFakeOutlook };
+export { largeGmailAccountId, stageLargeGmailChanges } from "./gmail.ts";
 
-/** Wraps fetch with the fake services and returns the platform signed in to them. */
-export async function withFakeServices(platform: Platform): Promise<Platform> {
-  await installFakeGmail(platform.files);
+/**
+ * Wraps `fetch` with the fakes and returns `platform` signed in to them. `gmailMessages` adds that
+ * many made-up messages to the first Gmail mailbox (large-mailbox.ts), for measuring sync.
+ */
+export async function withFakeServices(
+  platform: Platform,
+  { gmailMessages = 0 }: { gmailMessages?: number } = {},
+): Promise<Platform> {
+  await installFakeGmail(platform.files, { messages: gmailMessages });
   await installFakeOutlook(platform.files);
   await installFakeRelay(platform.files);
   // A browser's session is its cookie: the made-up relay answers who it is, and stays signed out.

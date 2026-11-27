@@ -10,25 +10,25 @@
 
 ## Commands
 
-| Command                                 | What it does                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `pnpm install`                          | Installs dependencies and the git pre-commit hook (formats staged files).                |
-| `pnpm dev[:fake\|:demo]`                | The web app and a local relay (see [What a dev run opens on](#what-a-dev-run-opens-on)). |
-| `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.           |
-| `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).           |
-| `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).              |
-| `pnpm dev:ios`                          | Builds the iPhone app and runs it in the simulator (see `apps/ios/README.md`).           |
-| `pnpm ios:resources`                    | Re-exports the demo mailbox and licenses the iPhone apps bundle.                         |
-| `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)). |
-| `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                      |
-| `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                 |
-| `pnpm bench:desktop`                    | Times the built desktop app on a large made-up mailbox (see [Speed](#speed)).            |
-| `pnpm build:translator`                 | Builds the Swift translator helper.                                                      |
-| `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).              |
-| `pnpm typecheck`                        | TypeScript across the workspace.                                                         |
-| `pnpm lint` / `pnpm fmt`                | Oxlint and Oxfmt through Vite+.                                                          |
-| `pnpm dist:desktop:dmg`                 | Unsigned DMG + ZIP for this Mac's architecture in `release/`.                            |
-| `pnpm dist:desktop:deb`                 | The Linux .deb (x64) in `release/`; on Linux.                                            |
+| Command                                 | What it does                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm install`                          | Installs dependencies and the git pre-commit hook (formats staged files).                   |
+| `pnpm dev[:fake\|:demo]`                | The web app and a local relay (see [What a dev run opens on](#what-a-dev-run-opens-on)).    |
+| `pnpm dev:desktop[:fake\|:demo\|:real]` | Vite dev server + main-process watcher + Electron, restarting on main changes.              |
+| `pnpm imap-server [down]`               | A local IMAP server with a seeded mailbox (see [IMAP locally](#imap-locally)).              |
+| `pnpm agents-server [down]`             | Local OpenClaw and Hermes gateways (see [Agent gateways](#agent-gateways)).                 |
+| `pnpm dev:mobile:mail`                  | Builds Otter Mail and runs it in the simulator (see `apps/mail-mobile/README.md`).          |
+| `pnpm licenses:mobile:agents`           | Re-exports the licenses Otter Agents on Expo lists (see [below](#open-source-licenses)).    |
+| `pnpm start`                            | Runs the built app unpackaged (`pnpm build` first).                                         |
+| `pnpm build`                            | Builds `apps/web/dist` and `apps/desktop/dist-electron`.                                    |
+| `pnpm bench:desktop`                    | Times the built desktop app on a large made-up mailbox (see [Speed](#speed)).               |
+| `pnpm bench:mobile:mail`                | Otter Mail's JavaScript thread on the simulator over 50,000 messages (see [Speed](#speed)). |
+| `pnpm build:translator`                 | Builds the Swift translator helper.                                                         |
+| `pnpm build:notifier`                   | Builds the addon for agents' notifications with their pictures (see below).                 |
+| `pnpm typecheck`                        | TypeScript across the workspace.                                                            |
+| `pnpm lint` / `pnpm fmt`                | Oxlint and Oxfmt through Vite+.                                                             |
+| `pnpm dist:desktop:dmg`                 | Unsigned DMG + ZIP for this Mac's architecture in `release/`.                               |
+| `pnpm dist:desktop:deb`                 | The Linux .deb (x64) in `release/`; on Linux.                                               |
 
 Agents' notifications with the agent's picture (Mac, `native/notifier`) need a Developer ID
 signature and an embedded profile, which the dev app lacks: it falls back to Otter's icon. To see
@@ -339,18 +339,24 @@ use leaves open: the browser panel with three tabs (real sites: it needs the net
 calendar panel and the chat window. `--json` keeps every run. Compare a change with `main` by
 running it in both checkouts. Set `OTTER_BENCH_HOME` to keep its data home between runs.
 
+`pnpm bench:mobile:mail` builds Otter Mail for iPhone as a simulator Release over a
+50,000-message fake Gmail mailbox, runs it on its own simulator (`--device` picks another) and
+prints how long its JavaScript thread was held while the list scrolled itself: through the
+first sync, and through a replay of 200 changes after it. The gate for both is a longest block of
+50 ms or less and a 95th percentile of 16 ms or less; the time to the first row is
+informational. What it prints, and doing it by hand: `apps/mail-mobile/README.md#benchmark`.
+
 ## CI
 
 A pull request runs `.github/workflows/ci.yml`: lint, typecheck, tests and a build, and, when
-what they build changed, the Swift jobs (the iPhone apps, the translator), the Hermes plugin's
+what they build changed, the Xcode jobs (the iPhone apps, the translator), the Hermes plugin's
 tests and the desktop app's packaging, unsigned. The lint, typecheck and test jobs are
 `.github/workflows/checks.yml`, which a release runs too.
 
-The iPhone jobs build each app, its extension and its tests, and run no test: a simulator's first
-boot takes most of ten minutes on GitHub's macOS runner (3 cores, 7 GB), and the Mac can't run
-them another way (a Mac Catalyst build lacks an API each app uses; macOS installs the iPhone app
-itself only with a provisioning profile). The tests run on a Mac, in the simulator
-(`apps/ios/README.md`, `apps/agents-mobile/README.md`).
+The iPhone jobs generate each Expo app's native project and build the app and its notification
+extension for the simulator, unsigned. Otter Agents builds only when its native fingerprint
+changed (`scripts/agents-runtime.ts`); its JavaScript is checked with the rest. Their logic is
+tested where it lives, in vitest.
 
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task
 reads, and replays the result while none has changed. So a change reruns only the packages it
@@ -376,10 +382,8 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
   desktop app: every installed production dependency of `apps/web` and `apps/desktop`, through
   the workspace packages they use, with the license text its package ships. The dev server
   answers the same path.
-- `pnpm ios:resources` writes the iPhone apps' `Licenses.json`.
-- `pnpm licenses:mobile:agents` writes the Expo app's `apps/agents-mobile/src/settings/licenses.json`
-  (`scripts/export-mobile-licenses.ts <app>`, one list per Expo app, its bundle named for the
-  app): what the iPhone build ships. That is every package whose JavaScript is in the app's
+- `pnpm licenses:mobile:agents` and `pnpm licenses:mobile:mail` write each Expo app's
+  `src/settings/licenses.json`. Each list reflects what its iPhone build ships. That is every package whose JavaScript is in the app's
   bundle (an `expo export` for iOS, read from its source map, with its own Metro cache), and
   every package Expo autolinks into a Release build for its native code. It takes about 15
   seconds. CI's Lint job runs it with `--check`, which fails while the committed list is stale:
@@ -388,7 +392,7 @@ generated (`scripts/lib/third-party-licenses.ts`, T3 Code's):
 `third-party-licenses.config.json` holds what a package can't say for itself:
 
 - `customNotices`: what didn't come from npm, such as code ported from another project, a font,
-  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `ios`,
+  an image, a Swift package. `bundles` says which apps list it (`web`, `desktop`, `mail-mobile`,
   `agents-mobile`). Give it `generatedNotices` (an SPDX license id, with `copyrights` and a
   `preamble`) or a `noticeFile`. The libraries an Expo app's native code carries that npm doesn't
   name (React Native's prebuilt dependencies, Hermes, SQLite, expo-image's decoders) are here,

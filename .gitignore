@@ -20,7 +20,6 @@ tmp/
 .claude/skills/synced
 .wrangler/
 .dev.vars
-apps/ios/.build/
 infra/relay/.wrangler.local.jsonc
 apps/*-mobile/ios/
 apps/*-mobile/android/

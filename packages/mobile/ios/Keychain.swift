@@ -2,9 +2,8 @@ import Foundation
 import Security
 
 /**
- * Generic passwords under the app's service, as the Swift apps keep them
- * (apps/ios-agents' and apps/ios' Keychain.swift): an item they wrote is found here under the
- * same name.
+ * Generic passwords under the app's service, as the apps' Swift builds kept them: an item an
+ * install from before Expo wrote is found here under the same name.
  */
 enum Keychain {
   struct Failure: LocalizedError {
@@ -15,6 +14,7 @@ enum Keychain {
   }
 
   static func get(service: String, name: String) throws -> String? {
+    if sharedImapPassword(service: service, name: name) { return try MailCredentialStore.read(name) }
     var query = query(service: service, name: name)
     query[kSecReturnData as String] = true
     var result: AnyObject?
@@ -25,6 +25,7 @@ enum Keychain {
   }
 
   static func set(service: String, name: String, value: String) throws {
+    if sharedImapPassword(service: service, name: name) { return try MailCredentialStore.write(name, value) }
     let query = query(service: service, name: name)
     let attributes: [String: Any] = [
       kSecValueData as String: Data(value.utf8),
@@ -38,8 +39,13 @@ enum Keychain {
   }
 
   static func delete(service: String, name: String) throws {
+    if sharedImapPassword(service: service, name: name) { return try MailCredentialStore.write(name, nil) }
     let status = SecItemDelete(query(service: service, name: name) as CFDictionary)
     guard status == errSecSuccess || status == errSecItemNotFound else { throw Failure(status: status) }
+  }
+
+  private static func sharedImapPassword(service: String, name: String) -> Bool {
+    service == MailCredentialStore.service && name.hasPrefix("imap-password:")
   }
 
   private static func query(service: String, name: String) -> [String: Any] {

@@ -7,8 +7,9 @@ apps to ship ([What a run releases](#what-a-run-releases)). Mac releases are Git
 this repository.
 New releases support Apple Silicon Macs only (arm64). Intel Macs can keep using older releases,
 but no longer receive compatible updates.
-The iPhone app ships separately, with its own version ([The iPhone app](#the-iphone-app)); Otter
-Agents, the second iPhone app, likewise ([Otter Agents](#otter-agents)).
+Otter Mail for iPhone ships separately, with its own version
+([Otter Mail for iPhone](#otter-mail-for-iphone)); Otter Agents, the second iPhone app,
+likewise ([Otter Agents](#otter-agents)). Both are Expo apps.
 The Mac and Linux app follow [Otter Code's stable and nightly release trains](https://github.com/otterware-app/otter-code/blob/main/.github/workflows/release.yml). Settings → General
 chooses the update channel on this computer. Both channels use the same installed app, mailbox
 cache and account data; switching installs the selected channel's build and icon. The default
@@ -27,12 +28,13 @@ The workflow's first job, "What to release" (`scripts/release-plan.ts`), chooses
 writes its choice to the run's summary; the other apps' jobs are skipped.
 
 - **A push to `main`** ships each app the push's commits changed. The Mac, Linux and web app is
-  built from the whole repository, less what only another part ships: `apps/ios`,
-  `apps/agents-mobile`, `infra` (the relay, which Cloudflare deploys), `docs`, `changelog`,
-  `.github` and `.agents`. The iPhone app: `apps/ios`, `packages/shared`,
-  `scripts/export-ios-resources.ts`, `scripts/release-ios.ts`. Otter Agents: `apps/agents-mobile`,
-  what it compiles and bundles from Otter Mail (`apps/ios/OtterMail/Agent`, which is
-  `MailContext`, `Theme`, `Resources`, `Settings/Licenses.swift`) and the same two scripts.
+  built from the whole repository, less what only another part ships: `apps/mail-mobile`,
+  `apps/agents-mobile`, `packages/mobile`, `packages/ui-native`, `infra` (the relay, which
+  Cloudflare deploys), `docs`, `changelog`, `.github` and `.agents`. Otter Mail ships on
+  changes to `apps/mail-mobile` and what it bundles: `packages/core`, `client`, `contracts`,
+  `mobile`, `shared` and `ui-native`, the Translation extension's core, `patches/`, the
+  lockfile and `scripts/release-ios.ts`. Otter Agents likewise for `apps/agents-mobile`, with
+  its agent extensions instead of Translation. The lists are `scripts/release-plan.ts`'s.
   A `README.md` counts for no app.
 - **A run by hand** (Actions → Release → Run workflow, or `gh workflow run release.yml`) ships
   each app that `main` has changed since that app's last release (its newest tag; the releases'
@@ -40,7 +42,7 @@ writes its choice to the run's summary; the other apps' jobs are skipped.
   by running the workflow again, with nothing to choose.
 - `apps` (`desktop`, `iphone`, `agents`, `all`) releases those apps now, whatever changed.
   `channel=stable` is the Mac, Linux and web app's stable release, below. `bump` and `version`
-  are the iPhone apps' ([The iPhone app](#the-iphone-app)).
+  are the iPhone apps' ([Otter Mail for iPhone](#otter-mail-for-iphone)).
 - A `vX.Y.Z` tag releases that commit of the Mac, Linux and web app as stable.
 
 Before publishing, the Mac, Linux and web app's commit passes the checks CI runs on pull
@@ -148,25 +150,28 @@ Ubuntu 22.04+ ship (GTK 3, NSS, libnotify, libsecret, xdg-utils).
 `CSC_NAME="Christophe Nicolas Kafrouni (838JVGY7W4)"` can stand in for `CSC_LINK` and
 `CSC_KEY_PASSWORD`.
 
-## The iPhone app
+## Otter Mail for iPhone
 
-The iPhone app has its own version (`MARKETING_VERSION` in `apps/ios/OtterMail.xcodeproj`) and
-its own tags (`ios-vX.Y.Z`), apart from the Mac app's: it is released when it has changed, not
-with every Mac release. It started from the Mac app's 0.5.6, the last shared version.
+Otter Mail for iPhone (`apps/mail-mobile`) has its own version (in its `package.json`) and its
+own tags (`ios-vX.Y.Z`), apart from the Mac app's: it is released when it has changed, not with
+every Mac release. It started from the Mac app's 0.5.6, the last shared version. It was a Swift
+app before; the Expo app kept its App Store record, bundle IDs, version line and tags, so it
+installs over the Swift build in place.
 
-1. The Release workflow's "Otter Mail for iPhone" job runs on each push to `main` that touches
-   `apps/ios`, `packages/shared`, `scripts/export-ios-resources.ts` or `scripts/release-ios.ts`,
-   as a patch. Its releases go one at a time; while one runs, only the newest push waits. For a
+1. The Release workflow's "Otter Mail for iPhone" job runs on each push to `main` that changes
+   the Expo Mail app or its release inputs, as a patch. Its releases go one at a time.
+   While one runs, only the newest push waits. For a
    minor or major version: Actions → Release → Run workflow, `apps=iphone` and `patch`, `minor`
    or `major`; or `gh workflow run release.yml -f apps=iphone -f bump=minor` (or
    `-f version=1.0.0`). The version is the latest `ios-vX.Y.Z` tag with that bump (the first
    release ships the project's version), read when the job's turn comes, so one that waited
    takes the version after the release it waited for.
-2. The job builds the run's commit on GitHub's `xcode-27` runner with its default (release)
-   Xcode, signs it for the App Store and uploads it to App Store Connect. The build number is the
+2. On GitHub's `xcode-27` runner, `scripts/release-ios.ts` generates the native project
+   (`expo prebuild`, then CocoaPods), archives the app and its notification extension with
+   `xcodebuild`, and uploads the signed build to App Store Connect. The build number is the
    time (YYYYMMDDhhmm).
 3. Only once the upload succeeded does it tag the commit `ios-vX.Y.Z` and commit the version to
-   the Xcode project on `main`, so a failed run leaves nothing behind. It makes no GitHub Release:
+   the Expo package on `main`. It makes no GitHub Release:
    the Mac app updates from the latest one.
    Its last step makes the build's Sentry release, with its commits since the last iPhone tag
    (docs/error-reports.md); a failure there doesn't fail the release.
@@ -198,7 +203,7 @@ from a Mac with Xcode 27, if GitHub can't) sign with:
 The App Store app is "Otter Mail: Calm Email" (ID 6817249947); on the phone it's "Otter Mail".
 Release builds sign in to Google with their own "iOS" OAuth client (for `dev.otterware.mail`);
 development builds use the one for `dev.otterware.mail.dev`. The relay accepts both
-(`GOOGLE_IOS_CLIENT_ID`). The demo mailbox shows only in development and TestFlight builds.
+(`GOOGLE_IOS_CLIENT_ID`).
 
 ## Otter Agents
 
@@ -224,7 +229,7 @@ update job signs in to Expo with the `EXPO_TOKEN` secret, a robot token
 (`otter-github-releases`). A build from this Mac (`pnpm release:ios:agents`) records no
 fingerprint and takes no updates; merges keep comparing with the last build the workflow made.
 
-It signs with the iPhone app's Apple Distribution identity and App Store Connect API key (the
+It signs with Otter Mail's Apple Distribution identity and App Store Connect API key (the
 same secrets) and its own profiles: "Otter Agents App Store" for `dev.otterware.agents` (Push
 Notifications, Communication Notifications, the `group.dev.otterware.agents` App Group), the
 `IOS_AGENTS_PROVISIONING_PROFILE` secret (base64 of the `.mobileprovision`); and "Otter Agents
@@ -233,5 +238,5 @@ Notifications App Store" for the notification service extension, `dev.otterware.
 ID's capabilities invalidates its profiles: regenerate them and update the secrets.
 
 The App Store Connect app is "Otter Agents" (ID 6833242723). Builds go to its internal TestFlight
-group, Nightly (Internal), automatically. Release builds sign in to Google with the iPhone app's
+group, Nightly (Internal), automatically. Release builds sign in to Google with Otter Mail's
 "iOS" OAuth clients.

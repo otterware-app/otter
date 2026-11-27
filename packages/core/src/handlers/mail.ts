@@ -124,11 +124,8 @@ async function refreshLabels(accountId: string): Promise<void> {
 
 async function refreshMetadata(accountId: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const before = new Set(ids.flatMap((id) => mailStore.getMessageLabelIds(accountId, id) ?? []));
   const fresh = await providerFor(accountId).getSummaries(accountId, ids);
-  mailStore.upsertMessages(accountId, fresh);
-  for (const m of fresh) for (const l of m.labelIds) before.add(l);
-  mailStore.recountLabels(accountId, [...before]);
+  mailStore.upsertMessages(accountId, fresh, { counted: true });
   updateDockBadge();
 }
 
@@ -925,11 +922,7 @@ export function registerMailHandlers(): void {
         providerFor(accountId)
           .untrashThread(accountId, threadId)
           .then((fresh) => {
-            mailStore.upsertMessages(accountId, fresh);
-            mailStore.recountLabels(accountId, [
-              ...new Set(fresh.flatMap((m) => m.labelIds)),
-              "TRASH",
-            ]);
+            mailStore.upsertMessages(accountId, fresh, { counted: true });
             updateDockBadge();
           }),
       );
@@ -950,11 +943,7 @@ export function registerMailHandlers(): void {
         Promise.all(ids.map((id) => providerFor(accountId).untrashMessage(accountId, id)))
           .then((copies) => copies.flat())
           .then((fresh) => {
-            mailStore.upsertMessages(accountId, fresh);
-            mailStore.recountLabels(accountId, [
-              ...new Set(fresh.flatMap((m) => m.labelIds)),
-              "TRASH",
-            ]);
+            mailStore.upsertMessages(accountId, fresh, { counted: true });
             updateDockBadge();
           }),
       );
@@ -1319,6 +1308,7 @@ export function registerMailHandlers(): void {
               mailStore.upsertMessages(
                 accountId,
                 await provider.getSummaries(accountId, [result.messageId]),
+                { counted: true },
               );
             } catch (mirrorErr) {
               console.log("[gmail:sendMessage] sent; local mirror failed", {

@@ -1,13 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { host } from "../host.ts";
-import { useLatest } from "../use-latest.ts";
+import { useHandlers, useLatest } from "../use-latest.ts";
 import { mailApi } from "./api.ts";
 import type { ComposeAttachment, MessageDetail } from "./types.ts";
 
 export type DraftSaveState = "idle" | "saving" | "saved" | "error";
 
 export type DraftRemoteState = { kind: "conflict"; detail: MessageDetail } | { kind: "gone" };
+
+export type DraftAnchor = {
+  sessionKey: string;
+  draftId: string | null;
+  messageId: string | null;
+  revision: string | null;
+  threadId?: string;
+};
 
 const REMOTE_CHECK_MS = 10_000;
 const REMOTE_NOTICE_MS = 4_000;
@@ -21,10 +29,14 @@ export function useDraftAutosave({
   getPayload,
   delayMs = 1500,
   enabled = true,
+  seeded = false,
   initialDraftId,
   initialMessageId,
   initialRevision,
   initialGone,
+  initialDirty = false,
+  initialSessionKey,
+  autosave = true,
   onRemoteChange,
 }: {
   accountId: string | null;
@@ -42,10 +54,14 @@ export function useDraftAutosave({
     attachments?: ComposeAttachment[];
   } | null;
   enabled?: boolean;
+  seeded?: boolean;
   initialDraftId?: string | null;
   initialMessageId?: string;
   initialRevision?: string;
   initialGone?: boolean;
+  initialDirty?: boolean;
+  initialSessionKey?: string;
+  autosave?: boolean;
   onRemoteChange?: (detail: MessageDetail) => void | Promise<void>;
 }) {
   const qc = useQueryClient();
@@ -65,14 +81,15 @@ export function useDraftAutosave({
   const unmountedRef = useRef(false);
   const pausedRef = useRef(!enabled);
   const remoteRef = useLatest(remote);
-  const sessionKeyRef = useRef(crypto.randomUUID());
-  const snapshotRef = useRef(signal);
+  const [sessionKey] = useState(() => initialSessionKey ?? crypto.randomUUID());
+  const snapshotRef = useRef(initialDirty ? "" : signal);
 
   const signalRef = useLatest(signal);
   const accountRef = useLatest(accountId);
   const threadRef = useLatest(threadId);
   const getPayloadRef = useLatest(getPayload);
   const onRemoteChangeRef = useLatest(onRemoteChange);
+  const autosaveRef = useLatest(autosave);
 
   useEffect(() => {
     if (initialDraftId && !draftIdRef.current) {
@@ -98,9 +115,9 @@ export function useDraftAutosave({
   const adoptCurrentSoonForEffect = useLatest(adoptCurrentSoon);
   useEffect(() => {
     if (!enabled) return;
-    adoptCurrentSoonForEffect.current();
+    if (!seeded) adoptCurrentSoonForEffect.current();
     pausedRef.current = remoteRef.current != null;
-  }, [enabled, adoptCurrentSoonForEffect, remoteRef]);
+  }, [enabled, seeded, adoptCurrentSoonForEffect, remoteRef]);
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["gmail:messages"] });
@@ -175,7 +192,7 @@ export function useDraftAutosave({
       const res = await mailApi.saveDraft({
         accountId: account,
         draftId: draftIdRef.current ?? undefined,
-        sessionKey: sessionKeyRef.current,
+        sessionKey,
         expectMessageId: draftIdRef.current ? (messageIdRef.current ?? undefined) : undefined,
         expectRevision: draftIdRef.current ? (versionRef.current ?? undefined) : undefined,
         ...payload,
@@ -205,31 +222,23 @@ export function useDraftAutosave({
       setSaveState("error");
       // Retry while the composer is open; a closed one's last save carries on
       // in the backend (same session, so no duplicate draft).
-      if (!unmountedRef.current) setTimeout(() => void triggerRef.current?.(), 5000);
+      if (!unmountedRef.current && autosaveRef.current) setTimeout(() => void trigger(), 5000);
     } finally {
       savingRef.current = false;
     }
   };
-  const saveRef = useLatest(save);
-  // The in-flight save, so finalize can await the unmount flush before
-  // deleting (send path closes the composer first, optimistically).
-  const pendingRef = useRef<Promise<void> | null>(null);
-  const trigger = () => {
-    const p = saveRef.current();
-    pendingRef.current = p;
-    return p;
-  };
-  const triggerRef = useRef<typeof trigger | null>(null);
-  useLayoutEffect(() => {
-    // oxlint-disable-next-line react/immutability -- The retry callback closes over this ref; layout updates it before timers or cleanup can invoke it.
-    triggerRef.current = trigger;
-  });
+  const latest = useHandlers({ save });
+  // finalize awaits the unmount flush through it before deleting (the send
+  // path closes the composer first, optimistically).
+  const [saves] = useState(() => draftSaveQueue(latest.save));
+  const trigger = saves.trigger;
 
   useEffect(() => {
-    const timer = setTimeout(() => void triggerRef.current?.(), delayMs);
+    if (!autosave) return;
+    const timer = setTimeout(() => void trigger(), delayMs);
     return () => clearTimeout(timer);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-run this DOM/reset lifecycle when its explicit trigger changes, even when the callback reads refs.
-  }, [signal, delayMs, triggerRef]);
+  }, [signal, delayMs, trigger, autosave]);
 
   const handleRemoteVersionForEffect = useLatest(handleRemoteVersion);
   const markGoneForEffect = useLatest(markGone);
@@ -267,15 +276,19 @@ export function useDraftAutosave({
   useEffect(
     () => () => {
       unmountedRef.current = true;
+      if (!autosaveRef.current) {
+        refreshRef.current();
+        return;
+      }
       if (remoteRef.current) {
         draftIdRef.current = null;
         versionRef.current = null;
         messageIdRef.current = null;
         pausedRef.current = false;
       }
-      void Promise.resolve(triggerRef.current?.()).finally(() => refreshRef.current());
+      void trigger().finally(() => refreshRef.current());
     },
-    [refreshRef, remoteRef, triggerRef],
+    [refreshRef, remoteRef, trigger, autosaveRef],
   );
 
   const takeTheirs = () => {
@@ -292,7 +305,7 @@ export function useDraftAutosave({
     messageIdRef.current = current.detail.id;
     setRemote(null);
     pausedRef.current = false;
-    void triggerRef.current?.();
+    void trigger();
   };
 
   const saveAsNew = () => {
@@ -302,22 +315,23 @@ export function useDraftAutosave({
     snapshotRef.current = "";
     setRemote(null);
     pausedRef.current = false;
-    void triggerRef.current?.();
+    void trigger();
+  };
+
+  const flush = async () => {
+    await trigger();
+    return signalRef.current === snapshotRef.current && remoteRef.current === null;
   };
 
   const finalize = async (opts?: { deleteDraft?: boolean }) => {
     doneRef.current = true;
-    if (pendingRef.current) await pendingRef.current;
+    await saves.pending();
     // Delete by id, or through the session: the backend waits for any save
     // still in flight and removes whatever draft it became.
     const account = draftAccountRef.current ?? accountRef.current;
     if (opts?.deleteDraft && account) {
       try {
-        await mailApi.deleteSessionDraft(
-          account,
-          sessionKeyRef.current,
-          draftIdRef.current ?? undefined,
-        );
+        await mailApi.deleteSessionDraft(account, sessionKey, draftIdRef.current ?? undefined);
       } catch {
         // sync reconciles leftovers
       }
@@ -327,7 +341,7 @@ export function useDraftAutosave({
   };
 
   const savedDraft = async (): Promise<{ accountId: string; messageId: string } | null> => {
-    if (pendingRef.current) await pendingRef.current;
+    await saves.pending();
     for (let i = 0; i < 100 && savingRef.current; i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -342,8 +356,16 @@ export function useDraftAutosave({
 
   /** What sending needs to send the draft itself: the backend knows the session's draft. */
   const sending = (accountId: string) => ({
-    sessionKey: sessionKeyRef.current,
+    sessionKey,
     draftId: draftAccountRef.current === accountId ? (draftIdRef.current ?? undefined) : undefined,
+  });
+
+  const anchor = (account: string): DraftAnchor => ({
+    sessionKey,
+    draftId: draftAccountRef.current === account ? draftIdRef.current : null,
+    messageId: draftAccountRef.current === account ? messageIdRef.current : null,
+    revision: draftAccountRef.current === account ? versionRef.current : null,
+    threadId: threadRef.current ?? adoptedThreadRef.current ?? undefined,
   });
 
   const reopen = () => {
@@ -358,9 +380,12 @@ export function useDraftAutosave({
     keepMine,
     saveAsNew,
     finalize,
+    flush,
     savedDraft,
     sending,
     reopen,
+    anchor,
+    isSaved: () => signalRef.current === snapshotRef.current,
   };
 }
 
@@ -377,4 +402,34 @@ export function draftStatusText(state: DraftSaveState): string | null {
   if (state === "saved") return "Draft saved";
   if (state === "error") return "Couldn't save draft. Retrying…";
   return null;
+}
+
+/**
+ * One save at a time. A save asked for while one is in flight runs once that one finishes, and
+ * the promise handed back settles only after it: what was typed meanwhile is saved too.
+ */
+export function draftSaveQueue(save: () => Promise<void>) {
+  let pending: Promise<void> | null = null;
+  let again = false;
+  const run = async () => {
+    try {
+      do {
+        again = false;
+        await save();
+      } while (again);
+    } finally {
+      pending = null;
+    }
+  };
+  return {
+    trigger(): Promise<void> {
+      if (pending) {
+        again = true;
+        return pending;
+      }
+      pending = run();
+      return pending;
+    },
+    pending: () => pending,
+  };
 }

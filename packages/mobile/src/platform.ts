@@ -12,6 +12,8 @@ import { AppState } from "react-native";
 import { emit } from "./bridge.ts";
 import { openDatabase } from "./database.ts";
 import { appFiles } from "./files.ts";
+import { mailGoogleAuth, mailMicrosoftAuth } from "./mail-auth.ts";
+import { connectMailSocket } from "./mail-socket.ts";
 import { native } from "./native.ts";
 import { localNotifications } from "./notifications.ts";
 import { keychainSecrets } from "./secrets.ts";
@@ -63,6 +65,8 @@ export function phonePlatform(options: {
   home: string;
   secretsService: string;
   relayUrl?: string;
+  mail?: boolean;
+  backgroundCheckpoints?: boolean;
   errorReports?: boolean;
 }): Platform {
   let database: ReturnType<Platform["database"]> | null = null;
@@ -75,13 +79,17 @@ export function phonePlatform(options: {
       if (options.errorReports) reportLog(level, scope, message, data);
     },
 
-    database: () => (database ??= openDatabase(`${options.home}.db`)),
+    database: () =>
+      (database ??= openDatabase(`${options.home}.db`, options.backgroundCheckpoints)),
     files: appFiles(options.home),
     secrets: keychainSecrets(options.secretsService),
     userFiles,
 
-    google,
-    connect: () => Promise.reject(new Error("Mail servers can't be reached from the phone yet.")),
+    google: options.mail ? mailGoogleAuth() : google,
+    microsoft: options.mail ? mailMicrosoftAuth() : undefined,
+    connect: options.mail
+      ? connectMailSocket
+      : () => Promise.reject(new Error("Mail servers aren't available here.")),
     relayUrl: options.relayUrl || RELAY_URL,
     relaySession: "bearer",
     deviceName: Constants.deviceName ?? "iPhone",

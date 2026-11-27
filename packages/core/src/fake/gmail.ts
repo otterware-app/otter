@@ -1,12 +1,14 @@
 import { fakeTodoist } from "./todoist.ts";
 
 import * as accountStore from "../services/account-store.ts";
-import { fromBase64, toBase64 } from "../bytes.ts";
+import { fromBase64, toBase64, toBase64Url } from "../bytes.ts";
+import { yieldThread } from "../pool.ts";
 import type { GoogleAuth, Platform } from "../platform.ts";
 import type { MailAccount } from "../types.ts";
 
 import { DEMO_ACCOUNTS, type SeedAccount } from "@otter/shared/demo-mailboxes";
 import { EXTRA_DEMO_ACCOUNTS } from "./extra-mailboxes.ts";
+import { generatedBody, generatedOpening, largeMailbox } from "./large-mailbox.ts";
 
 const SEEDS = [...DEMO_ACCOUNTS, ...EXTRA_DEMO_ACCOUNTS];
 import { fakeCalendar } from "./calendar.ts";
@@ -38,7 +40,11 @@ type Message = {
   text: string | null;
   html: string | null;
   attachments: Attachment[];
+  /** A large mailbox's (large-mailbox.ts): its index there, which its body is written from. */
+  generated?: number;
 };
+
+export type { Attachment as FakeAttachment, Header as FakeHeader, Message as FakeMessage };
 
 type Label = {
   id: string;
@@ -56,6 +62,8 @@ type HistoryRecord = {
   labelsRemoved?: (Ref & { labelIds: string[] })[];
 };
 
+type GeneratedEdit = Pick<Message, "generated" | "labelIds">;
+
 type Mailbox = {
   email: string;
   name: string;
@@ -67,12 +75,16 @@ type Mailbox = {
   drafts: Record<string, string>;
   history: HistoryRecord[];
   signature: string;
+  /** How many messages large-mailbox.ts made for it. */
+  generated?: number;
+  generatedEdits?: Record<string, GeneratedEdit | null>;
 };
 
 const STATE_FILE = "demo-gmail.json";
 const STATE_VERSION = 1;
 /** Every answer waits this long, so the app sees a network, not a function call. */
 const LATENCY_MS = 30;
+const FIXTURE_WORK_MS = 8;
 
 const SYSTEM_LABELS = [
   "INBOX",
@@ -202,26 +214,82 @@ let state: State;
 let files: Platform["files"];
 let saving: ReturnType<typeof setTimeout> | null = null;
 
+// In the benchmark, the generated originals only live in memory. Save the small seed,
+// user-created messages and edits to generated labels and deletions.
+const savedMessages = new WeakMap<Mailbox, Mailbox["messages"]>();
+const serialize = () =>
+  JSON.stringify({
+    ...state,
+    mailboxes: Object.fromEntries(
+      Object.entries(state.mailboxes).map(([id, box]) => [
+        id,
+        { ...box, messages: savedMessages.get(box) ?? box.messages },
+      ]),
+    ),
+  });
+
 function save(): void {
   saving ??= setTimeout(() => {
     saving = null;
-    void files.write(STATE_FILE, JSON.stringify(state));
+    void files.write(STATE_FILE, serialize());
   }, 200);
 }
 
-async function loadState(): Promise<void> {
+async function restoreGenerated(box: Mailbox, seededAt: number, seed: SeedAccount): Promise<void> {
+  if (!box.generated) return;
+  const saved = box.messages;
+  const edits = box.generatedEdits ?? {};
+  const legacy = !box.generatedEdits;
+  const originalLabels = seed.labels.map((_, i) => `Label_${i + 1}`);
+  const mailbox = largeMailbox(box.generated, box.idPrefix, seed, originalLabels, seededAt);
+  const kept: Mailbox["messages"] = {};
+  for (const [id, m] of Object.entries(saved)) {
+    if (m.generated === undefined) kept[id] = m;
+  }
+  savedMessages.set(box, kept);
+  box.messages = { ...kept };
+  box.generatedEdits = edits;
+  let deadline = Date.now() + FIXTURE_WORK_MS;
+  for (const m of mailbox) {
+    if (Date.now() >= deadline) {
+      await yieldThread();
+      deadline = Date.now() + FIXTURE_WORK_MS;
+    }
+    const edit = legacy ? (saved[m.id] ?? null) : edits[m.id];
+    if (edit === null) {
+      if (legacy) edits[m.id] = null;
+      continue;
+    }
+    if (edit) {
+      if (legacy && edit.labelIds.join() !== m.labelIds.join()) {
+        edits[m.id] = { generated: m.generated, labelIds: edit.labelIds };
+      }
+      m.labelIds = edit.labelIds;
+    }
+    box.messages[m.id] = m;
+  }
+}
+
+/** `generated`: how many messages large-mailbox.ts adds to the first mailbox. */
+async function loadState(generated: number): Promise<void> {
   const bytes = await files.read(STATE_FILE);
   if (bytes) {
     const saved = JSON.parse(new TextDecoder().decode(bytes)) as State;
-    if (saved.version === STATE_VERSION) {
+    if (
+      saved.version === STATE_VERSION &&
+      (saved.mailboxes[SEEDS[0].email]?.generated ?? 0) === generated
+    ) {
       state = saved;
       let added = false;
-      SEEDS.forEach((seed, i) => {
-        if (state.mailboxes[seed.email]) return;
-        state.mailboxes[seed.email] = seedMailbox(seed, i, state.seededAt);
-        added = true;
-      });
-      if (added) await files.write(STATE_FILE, JSON.stringify(state));
+      for (const [i, seed] of SEEDS.entries()) {
+        const box = state.mailboxes[seed.email];
+        if (box) await restoreGenerated(box, state.seededAt, seed);
+        else {
+          state.mailboxes[seed.email] = seedMailbox(seed, i, state.seededAt);
+          added = true;
+        }
+      }
+      if (added) await files.write(STATE_FILE, serialize());
       return;
     }
   }
@@ -233,7 +301,14 @@ async function loadState(): Promise<void> {
       SEEDS.map((seed, i) => [seed.email, seedMailbox(seed, i, seededAt)]),
     ),
   };
-  await files.write(STATE_FILE, JSON.stringify(state));
+  if (generated > 0) {
+    const seed = SEEDS[0]!;
+    const box = state.mailboxes[seed.email]!;
+    box.generated = generated;
+    box.generatedEdits = {};
+    await restoreGenerated(box, seededAt, seed);
+  }
+  await files.write(STATE_FILE, serialize());
 }
 
 const ref = (m: Message): Ref => ({
@@ -252,6 +327,9 @@ function modify(box: Mailbox, m: Message, add: string[], remove: string[]): void
   const removed = [...new Set(remove)].filter((l) => m.labelIds.includes(l) && !add.includes(l));
   if (added.length === 0 && removed.length === 0) return;
   m.labelIds = [...m.labelIds.filter((l) => !removed.includes(l)), ...added];
+  if (m.generated !== undefined && box.generatedEdits) {
+    box.generatedEdits[m.id] = { generated: m.generated, labelIds: m.labelIds };
+  }
   record(box, {
     ...(added.length ? { labelsAdded: [{ ...ref(m), labelIds: added }] } : {}),
     ...(removed.length ? { labelsRemoved: [{ ...ref(m), labelIds: removed }] } : {}),
@@ -259,14 +337,39 @@ function modify(box: Mailbox, m: Message, add: string[], remove: string[]): void
 }
 
 function addMessage(box: Mailbox, m: Message): void {
+  unlist(box, box.messages[m.id]);
   box.messages[m.id] = m;
+  const saved = savedMessages.get(box);
+  if (saved) saved[m.id] = m;
+  const sorted = newestFirst.get(box);
+  if (sorted) {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+      const mid = (low + high) >>> 1;
+      if (sorted[mid]!.internalDate > m.internalDate) low = mid + 1;
+      else high = mid;
+    }
+    newestFirst.set(box, sorted.toSpliced(low, 0, m));
+  }
   record(box, { messagesAdded: [ref(m)] });
+}
+
+/** Sorting the large mailbox again takes the app's thread for tens of milliseconds at a time. */
+function unlist(box: Mailbox, m: Message | undefined): void {
+  const sorted = newestFirst.get(box);
+  const index = m && sorted ? sorted.indexOf(m) : -1;
+  if (index >= 0) newestFirst.set(box, sorted!.toSpliced(index, 1));
 }
 
 function deleteMessage(box: Mailbox, id: string): void {
   const m = box.messages[id];
   if (!m) return;
   delete box.messages[id];
+  const saved = savedMessages.get(box);
+  if (saved) delete saved[id];
+  if (m.generated !== undefined && box.generatedEdits) box.generatedEdits[id] = null;
+  unlist(box, m);
   for (const [draftId, messageId] of Object.entries(box.drafts)) {
     if (messageId === id) delete box.drafts[draftId];
   }
@@ -333,7 +436,7 @@ export function parseMime(raw: string): Pick<Message, "headers" | "text" | "html
         id: "",
         filename: filename || (mime === "text/calendar" ? "invite.ics" : "attachment"),
         mimeType: mime,
-        data: bytesToBase64Url(bytes),
+        data: toBase64Url(bytes),
         size: bytes.length,
       });
     } else if (mime === "text/html" && out.html === null) {
@@ -360,12 +463,6 @@ export function parseMime(raw: string): Pick<Message, "headers" | "text" | "html
       .filter((h) => keep.has(h.name.toLowerCase()))
       .map((h) => ({ name: h.name, value: decodeWords(h.value) })),
   };
-}
-
-function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function fromRaw(box: Mailbox, raw: string, threadId: string | undefined, labels: string[]) {
@@ -400,15 +497,25 @@ const escapeHtml = (text: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
 
+const bodies = (m: Message): Pick<Message, "text" | "html"> =>
+  m.generated === undefined ? m : generatedBody(m);
+
 function plainText(m: Message): string {
-  if (m.text !== null) return m.text;
-  return (m.html ?? "")
+  const { text, html } = bodies(m);
+  if (text !== null) return text;
+  return (html ?? "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ");
 }
 
-const snippet = (m: Message) => escapeHtml(plainText(m).replace(/\s+/g, " ").trim().slice(0, 180));
+const snippet = (m: Message) =>
+  escapeHtml(
+    (m.generated === undefined ? plainText(m) : generatedOpening(m))
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 180),
+  );
 
 const bodyPart = (mimeType: string, text: string) => {
   const bytes = new TextEncoder().encode(text);
@@ -416,13 +523,25 @@ const bodyPart = (mimeType: string, text: string) => {
     mimeType,
     filename: "",
     headers: [{ name: "Content-Type", value: `${mimeType}; charset="UTF-8"` }],
-    body: { size: bytes.length, data: bytesToBase64Url(bytes) },
+    body: { size: bytes.length, data: toBase64Url(bytes) },
   };
 };
 
+/** What `payload(m)` would say, without writing a generated message's bodies. */
+function payloadType(m: Message): string {
+  if (m.attachments.length > 0) return "multipart/mixed";
+  const { text, html } = m.generated === undefined ? m : { text: "", html: "" };
+  return text !== null && html !== null
+    ? "multipart/alternative"
+    : html !== null
+      ? "text/html"
+      : "text/plain";
+}
+
 function payload(m: Message): object {
-  const text = m.text !== null ? bodyPart("text/plain", m.text) : null;
-  const html = m.html !== null ? bodyPart("text/html", m.html) : null;
+  const parts = bodies(m);
+  const text = parts.text !== null ? bodyPart("text/plain", parts.text) : null;
+  const html = parts.html !== null ? bodyPart("text/html", parts.html) : null;
   let body: object =
     text && html
       ? { mimeType: "multipart/alternative", filename: "", body: { size: 0 }, parts: [text, html] }
@@ -470,7 +589,7 @@ function messageResource(box: Mailbox, m: Message, url: URL): object {
     const headers = wanted.length
       ? m.headers.filter((h) => wanted.includes(h.name.toLowerCase()))
       : m.headers;
-    return { ...base, payload: { mimeType: "multipart/mixed", headers } };
+    return { ...base, payload: { mimeType: payloadType(m), headers } };
   }
   return { ...base, payload: payload(m) };
 }
@@ -578,21 +697,111 @@ function sendFailure(raw: string | undefined): Response | null {
   return null;
 }
 
-function labelResource(box: Mailbox, label: Label): object {
-  const messages = Object.values(box.messages).filter((m) => m.labelIds.includes(label.id));
-  const unread = messages.filter((m) => m.labelIds.includes("UNREAD"));
+type MessageListing = {
+  messages: Message[];
+  withoutBins: Message[];
+  labels: Map<string, LabelListing>;
+  threadsTotal: number;
+};
+
+type LabelListing = {
+  messages: Message[];
+  withoutBins: Message[];
+  messagesUnread: number;
+  threadsTotal: number;
+  threadsUnread: number;
+};
+
+const newestFirst = new WeakMap<Mailbox, Message[]>();
+const listings = new WeakMap<Mailbox, { revision: number; ready: Promise<MessageListing> }>();
+
+function listingOf(box: Mailbox): Promise<MessageListing> {
+  const revision = box.historyId;
+  const cached = listings.get(box);
+  if (cached?.revision === revision) return cached.ready;
+  const ready = buildListing(box).then((listing) =>
+    revision === box.historyId ? listing : listingOf(box),
+  );
+  listings.set(box, { revision, ready });
+  return ready;
+}
+
+async function buildListing(box: Mailbox): Promise<MessageListing> {
+  let messages = newestFirst.get(box);
+  if (!messages) {
+    messages = Object.values(box.messages).sort((a, b) => b.internalDate - a.internalDate);
+    newestFirst.set(box, messages);
+  }
+  const withoutBins: Message[] = [];
+  const groups = new Map<
+    string,
+    {
+      messages: Message[];
+      withoutBins: Message[];
+      unread: number;
+      threads: Set<string>;
+      unreadThreads: Set<string>;
+    }
+  >();
+  const threads = new Set<string>();
+  let deadline = Date.now() + FIXTURE_WORK_MS;
+  for (const message of messages) {
+    if (box.generated && Date.now() >= deadline) {
+      await yieldThread();
+      deadline = Date.now() + FIXTURE_WORK_MS;
+    }
+    threads.add(message.threadId);
+    const binned = message.labelIds.includes("SPAM") || message.labelIds.includes("TRASH");
+    const unread = message.labelIds.includes("UNREAD");
+    if (!binned) withoutBins.push(message);
+    for (const id of message.labelIds) {
+      let group = groups.get(id);
+      if (!group) {
+        group = {
+          messages: [],
+          withoutBins: [],
+          unread: 0,
+          threads: new Set(),
+          unreadThreads: new Set(),
+        };
+        groups.set(id, group);
+      }
+      group.messages.push(message);
+      if (!binned) group.withoutBins.push(message);
+      group.threads.add(message.threadId);
+      if (unread) {
+        group.unread++;
+        group.unreadThreads.add(message.threadId);
+      }
+    }
+  }
+  const labels = new Map<string, LabelListing>();
+  for (const [id, group] of groups) {
+    labels.set(id, {
+      messages: group.messages,
+      withoutBins: group.withoutBins,
+      messagesUnread: group.unread,
+      threadsTotal: group.threads.size,
+      threadsUnread: group.unreadThreads.size,
+    });
+  }
+  return { messages, withoutBins, labels, threadsTotal: threads.size };
+}
+
+async function labelResource(box: Mailbox, label: Label): Promise<object> {
+  const counts = (await listingOf(box)).labels.get(label.id);
   return {
     ...label,
     messageListVisibility: "show",
     labelListVisibility: "labelShow",
-    messagesTotal: messages.length,
-    messagesUnread: unread.length,
-    threadsTotal: new Set(messages.map((m) => m.threadId)).size,
-    threadsUnread: new Set(unread.map((m) => m.threadId)).size,
+    messagesTotal: counts?.messages.length ?? 0,
+    messagesUnread: counts?.messagesUnread ?? 0,
+    threadsTotal: counts?.threadsTotal ?? 0,
+    threadsUnread: counts?.threadsUnread ?? 0,
   };
 }
 
-function listMessages(box: Mailbox, url: URL): Response {
+async function listMessages(box: Mailbox, url: URL): Promise<Response> {
   const labelIds = url.searchParams.getAll("labelIds");
   const q = url.searchParams.get("q") ?? "";
   const includeSpamTrash =
@@ -600,14 +809,17 @@ function listMessages(box: Mailbox, url: URL): Response {
     labelIds.some((l) => l === "SPAM" || l === "TRASH");
   const maxResults = Number(url.searchParams.get("maxResults") ?? 100);
   const offset = Number(url.searchParams.get("pageToken") ?? 0);
-  const all = Object.values(box.messages)
-    .filter(
-      (m) =>
-        (includeSpamTrash || !m.labelIds.some((l) => l === "SPAM" || l === "TRASH")) &&
-        labelIds.every((l) => m.labelIds.includes(l)) &&
-        matchesQuery(box, m, q),
-    )
-    .sort((a, b) => b.internalDate - a.internalDate);
+  const listing = await listingOf(box);
+  const matching = labelIds.length ? listing.labels.get(labelIds[0]!) : listing;
+  const field = includeSpamTrash ? "messages" : "withoutBins";
+  const candidates = matching?.[field] ?? [];
+  const required = labelIds.slice(1);
+  const all =
+    q || required.length
+      ? candidates.filter(
+          (m) => required.every((l) => m.labelIds.includes(l)) && matchesQuery(box, m, q),
+        )
+      : candidates;
   const page = all.slice(offset, offset + maxResults);
   return json({
     ...(page.length ? { messages: page.map((m) => ({ id: m.id, threadId: m.threadId })) } : {}),
@@ -626,20 +838,27 @@ function draftResource(box: Mailbox, draftId: string): object {
   return { id: draftId, message: { id: m.id, threadId: m.threadId, labelIds: m.labelIds } };
 }
 
-function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unknown>): Response {
+async function gmail(
+  box: Mailbox,
+  method: string,
+  url: URL,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const path = url.pathname.replace(/^\/gmail\/v1\/users\/me\/?/, "").split("/");
   const [collection, id, action] = path.map(decodeURIComponent);
   const thread = (threadId: string) =>
     Object.values(box.messages).filter((m) => m.threadId === threadId);
 
   switch (collection) {
-    case "profile":
+    case "profile": {
+      const listing = await listingOf(box);
       return json({
         emailAddress: box.email,
-        messagesTotal: Object.keys(box.messages).length,
-        threadsTotal: new Set(Object.values(box.messages).map((m) => m.threadId)).size,
+        messagesTotal: listing.messages.length,
+        threadsTotal: listing.threadsTotal,
         historyId: String(box.historyId),
       });
+    }
 
     case "watch":
       return json({
@@ -651,9 +870,13 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
       const start = Number(url.searchParams.get("startHistoryId"));
       // A cursor from before a reset: Gmail's answer for an expired one.
       if (!(start <= box.historyId)) return notFound();
+      const maxResults = Number(url.searchParams.get("maxResults") ?? 100);
+      const offset = Number(url.searchParams.get("pageToken") ?? 0);
+      const all = box.history.filter((h) => Number(h.id) > start);
       return json({
-        history: box.history.filter((h) => Number(h.id) > start),
+        history: all.slice(offset, offset + maxResults),
         historyId: String(box.historyId),
+        ...(offset + maxResults < all.length ? { nextPageToken: String(offset + maxResults) } : {}),
       });
     }
 
@@ -667,7 +890,7 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
           const label: Label = { id: `Label_${newId(box)}`, name, type: "user" };
           box.labels.push(label);
           save();
-          return json(labelResource(box, label));
+          return json(await labelResource(box, label));
         }
         return json({ labels: box.labels.map(({ id, name, type }) => ({ id, name, type })) });
       }
@@ -687,7 +910,7 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
         if (body.color) label.color = body.color as Label["color"];
         save();
       }
-      return json(labelResource(box, label));
+      return json(await labelResource(box, label));
     }
 
     case "messages": {
@@ -717,7 +940,11 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
       if (!m) return notFound();
       if (action === "attachments") {
         const attachment = m.attachments.find((a) => a.id === path[3]);
-        return attachment ? json({ size: attachment.size, data: attachment.data }) : notFound();
+        if (!attachment) return notFound();
+        return json({
+          size: attachment.size,
+          data: attachment.data || attachmentData(`A made-up ${attachment.filename}.`),
+        });
       }
       if (action === "modify") {
         const add = (body.addLabelIds as string[]) ?? [];
@@ -829,7 +1056,12 @@ function gmail(box: Mailbox, method: string, url: URL, body: Record<string, unkn
   return notFound();
 }
 
-function answer(url: URL, method: string, headers: Headers, rawBody: unknown): Response | null {
+function answer(
+  url: URL,
+  method: string,
+  headers: Headers,
+  rawBody: unknown,
+): Response | Promise<Response> | null {
   if (url.hostname === "gmail.googleapis.com" && url.pathname.startsWith("/gmail/v1/users/me")) {
     const account = /^Bearer demo:(.+)$/.exec(headers.get("Authorization") ?? "")?.[1];
     const box = account ? state.mailboxes[account] : undefined;
@@ -863,9 +1095,12 @@ function answer(url: URL, method: string, headers: Headers, rawBody: unknown): R
   return null;
 }
 
-export async function installFakeGmail(demoFiles: Platform["files"]): Promise<void> {
+export async function installFakeGmail(
+  demoFiles: Platform["files"],
+  { messages = 0 }: { messages?: number } = {},
+): Promise<void> {
   files = demoFiles;
-  await loadState();
+  await loadState(messages);
   const todoist = await fakeTodoist(demoFiles);
   const realFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = async (input, init) => {
@@ -876,7 +1111,7 @@ export async function installFakeGmail(demoFiles: Platform["files"]): Promise<vo
     const response =
       url.origin === FAKE_RELAY_URL
         ? await answerRelay(url, method, init?.body)
-        : answer(url, method, new Headers(init?.headers ?? request?.headers), init?.body);
+        : await answer(url, method, new Headers(init?.headers ?? request?.headers), init?.body);
     if (!response) return realFetch(input, init);
     await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
     return response;
@@ -897,6 +1132,7 @@ function demoAccount(seed: SeedAccount): MailAccount {
 export function demoGoogleAuth(): GoogleAuth {
   const isDemo = (accountId: string) => SEEDS.some((seed) => seed.email === accountId);
   return {
+    bypassGmailQuota: (accountId) => Boolean(state?.mailboxes[accountId]?.generated),
     async load() {
       if ((await accountStore.listAccounts()).length > 0) return;
       for (const seed of DEMO_ACCOUNTS) await accountStore.addAccount(demoAccount(seed));
@@ -916,4 +1152,50 @@ export function demoGoogleAuth(): GoogleAuth {
     getIdToken: async () => "demo-google-id-token",
     async removeTokens() {},
   };
+}
+
+export const largeGmailAccountId = DEMO_ACCOUNTS[0]!.email;
+
+export async function stageLargeGmailChanges(accountId: string, count: number): Promise<number> {
+  const box = state?.mailboxes[accountId];
+  if (!box?.generated) throw new Error("The large fake Gmail mailbox is unavailable.");
+  const gmail = async (path: string, init: RequestInit = {}) => {
+    const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer demo:${accountId}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) throw new Error(`Fake Gmail returned ${response.status} for ${path}`);
+    return response;
+  };
+  const { messages } = (await (await gmail(`/messages?maxResults=${count}`)).json()) as {
+    messages: { id: string }[];
+  };
+  let netMessages = 0;
+  for (const [index, { id }] of messages.entries()) {
+    if (index % 5 < 2) {
+      const raw = toBase64(
+        new TextEncoder().encode(
+          `From: Bench <bench@example.com>\r\nTo: ${accountId}\r\nSubject: New ${index}\r\n\r\nHello ${index}`,
+        ),
+      );
+      await gmail("/messages/send", { method: "POST", body: JSON.stringify({ raw }) });
+      netMessages++;
+    } else if (index % 5 < 4) {
+      const starred = box.messages[id]?.labelIds.includes("STARRED");
+      await gmail(`/messages/${id}/modify?format=minimal`, {
+        method: "POST",
+        body: JSON.stringify({
+          addLabelIds: starred ? [] : ["STARRED"],
+          removeLabelIds: starred ? ["STARRED", "UNREAD", "INBOX"] : ["UNREAD", "INBOX"],
+        }),
+      });
+    } else {
+      await gmail(`/messages/${id}`, { method: "DELETE" });
+      netMessages--;
+    }
+  }
+  return netMessages;
 }

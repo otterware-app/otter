@@ -6,8 +6,8 @@ type TextStyle = { fontSize: number; dynamicTypeRamp: NonNullable<TextProps["dyn
 
 /**
  * The iPhone apps' look over the generated tokens: a white and a pitch-black canvas with iOS's
- * greys (apps/ios's Palette.swift, and the chat states of apps/ios-agents's Design.swift), Inter,
- * code in SF Mono, and type that keeps iOS's text-style sizes and scales with Dynamic Type.
+ * greys (and the chat states of apps/ios-agents's Design.swift), Inter, code in SF Mono, and type
+ * that keeps iOS's text-style sizes and scales with Dynamic Type.
  */
 export const phone = {
   colors: {

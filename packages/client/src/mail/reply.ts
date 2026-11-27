@@ -79,14 +79,31 @@ export function prefixSubject(prefix: "Re" | "Fwd", subject: string): string {
   return already.test(subject.trim()) ? subject : `${prefix}: ${subject}`;
 }
 
+export function replyBlock(
+  source: MessageSummary & { bodyText?: string | null; bodyHtml?: string | null },
+  htmlToText: (html: string) => string,
+  formatDate = formatFullDate,
+): string {
+  const body = source.bodyText ?? (source.bodyHtml ? htmlToText(source.bodyHtml) : "");
+  if (!body.trim()) return "";
+  const from = source.fromName || source.fromEmail;
+  const quote = body
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+  return `\n\nOn ${formatDate(source.date)}, ${from} wrote:\n${quote}`;
+}
+
 /** What a forward quotes: the message's text, or its HTML's (`htmlToText`). */
 export function forwardBlock(
   source: MessageSummary & { bodyText?: string | null; bodyHtml?: string | null },
   htmlToText: (html: string) => string,
+  formatDate = formatFullDate,
 ): string {
   const fromDisplay = source.fromName
     ? `${source.fromName} <${source.fromEmail}>`
     : source.fromEmail;
   const body = source.bodyText ?? (source.bodyHtml ? htmlToText(source.bodyHtml) : "");
-  return `\n\n---------- Forwarded message ----------\nFrom: ${fromDisplay}\nDate: ${formatFullDate(source.date)}\nSubject: ${source.subject}\nTo: ${source.to}\n\n${body}`;
+  return `\n\n---------- Forwarded message ----------\nFrom: ${fromDisplay}\nDate: ${formatDate(source.date)}\nSubject: ${source.subject}\nTo: ${source.to}\n\n${body}`;
 }

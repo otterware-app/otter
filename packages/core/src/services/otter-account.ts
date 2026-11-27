@@ -7,6 +7,7 @@ import { logger } from "../logger.ts";
 import { platform } from "../platform.ts";
 
 export const SESSION_SECRET = "otter-session";
+const PENDING_SIGN_OUTS_SECRET = "otter-pending-sign-outs";
 
 export const OTTER_SIGNED_OUT_MESSAGE = "Not signed in to Otter.";
 
@@ -51,6 +52,7 @@ export async function loadOtterAccount(): Promise<void> {
   } catch {
     session = null;
   }
+  void endPendingSignOuts();
 }
 
 export function getOtterUser(): RelayUser | null {
@@ -198,13 +200,66 @@ export async function signInRedirect(callbackURL: string): Promise<string> {
 }
 
 export async function signOut(): Promise<void> {
-  if (!session) return;
-  await auth()
-    .signOut()
-    .catch((err: unknown) => {
-      logger.failure("otter-account", "Couldn't end the relay session", err);
+  const current = session;
+  if (!current) return;
+  if (platform().kind === "mobile" && current.token) {
+    const { token } = current;
+    await endPhoneSession(token).catch(async (err: unknown) => {
+      logger.failure(
+        "otter-account",
+        "Couldn't end the relay session; retrying at next start",
+        err,
+      );
+      await savePendingSignOuts([...(await pendingSignOuts()), token]);
     });
+  } else {
+    await auth()
+      .signOut()
+      .catch((err: unknown) => {
+        logger.failure("otter-account", "Couldn't end the relay session", err);
+      });
+  }
   await setSession(null);
+}
+
+/**
+ * A phone's session holds its APNs registration, so it is ended at the relay even when signing
+ * out offline: the token is kept until the relay can be reached.
+ */
+async function endPhoneSession(token: string): Promise<void> {
+  await request("DELETE", "/v1/push/device", { token }).catch(unlessUnreachable);
+  await request("POST", "/v1/auth/sign-out", { token, body: {} }).catch(unlessUnreachable);
+}
+
+/** Any answer but an outage is final: a 401 means the session has already ended. */
+function unlessUnreachable(err: unknown): void {
+  if (!(err instanceof RelayError) || err.status === 0 || err.status >= 500) throw err;
+}
+
+async function pendingSignOuts(): Promise<string[]> {
+  return JSON.parse((await platform().secrets.get(PENDING_SIGN_OUTS_SECRET)) ?? "[]") as string[];
+}
+
+async function savePendingSignOuts(tokens: string[]): Promise<void> {
+  if (tokens.length) await platform().secrets.set(PENDING_SIGN_OUTS_SECRET, JSON.stringify(tokens));
+  else await platform().secrets.delete(PENDING_SIGN_OUTS_SECRET);
+}
+
+async function endPendingSignOuts(): Promise<void> {
+  if (platform().kind !== "mobile") return;
+  try {
+    const ended = new Set<string>();
+    for (const token of await pendingSignOuts()) {
+      await endPhoneSession(token).then(
+        () => ended.add(token),
+        () => {},
+      );
+    }
+    if (ended.size)
+      await savePendingSignOuts((await pendingSignOuts()).filter((token) => !ended.has(token)));
+  } catch (err) {
+    logger.failure("otter-account", "Couldn't end the sessions signed out offline", err);
+  }
 }
 
 function deviceName(userAgent: string | null | undefined): string {

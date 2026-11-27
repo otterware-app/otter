@@ -8,8 +8,9 @@ import * as NodePath from "node:path";
 
 const APPS = {
   mail: {
-    expo: false,
-    project: "apps/ios/OtterMail.xcodeproj",
+    project: "apps/mail-mobile",
+    versionEnv: "OTTER_MAIL_RELEASE_VERSION",
+    buildEnv: "OTTER_MAIL_RELEASE_BUILD",
     scheme: "OtterMail",
     profiles: {
       "dev.otterware.mail": "Otter Mail App Store",
@@ -18,8 +19,9 @@ const APPS = {
     sentryProject: "otter-mail-ios",
   },
   agents: {
-    expo: true,
     project: "apps/agents-mobile",
+    versionEnv: "OTTER_AGENTS_RELEASE_VERSION",
+    buildEnv: "OTTER_AGENTS_RELEASE_BUILD",
     scheme: "OtterAgents",
     profiles: {
       "dev.otterware.agents": "Otter Agents App Store",
@@ -51,15 +53,11 @@ function run(command: string, args: string[], cwd = root): void {
 }
 
 function sourceVersion(): string | undefined {
-  if (appName === "agents")
-    return (
-      JSON.parse(NodeFS.readFileSync(NodePath.join(project, "package.json"), "utf8")) as {
-        version: string;
-      }
-    ).version;
-  return /MARKETING_VERSION = ([^;]+);/.exec(
-    NodeFS.readFileSync(NodePath.join(project, "project.pbxproj"), "utf8"),
-  )?.[1];
+  return (
+    JSON.parse(NodeFS.readFileSync(NodePath.join(project, "package.json"), "utf8")) as {
+      version: string;
+    }
+  ).version;
 }
 
 const versionFlag = process.argv.indexOf("--version");
@@ -85,31 +83,22 @@ const auth = [
   issuer,
 ];
 
-if (app.expo) {
-  process.env.OTTER_APP_VARIANT = "production";
-  process.env.OTTER_AGENTS_RELEASE_VERSION = version;
-  process.env.OTTER_AGENTS_RELEASE_BUILD = build;
-  process.env.EXPO_NO_DOTENV = "1";
-  process.env.EXPO_NO_CLIENT_ENV_VARS = "1";
-  // Sentry's build phases upload the source maps (with debug IDs: no release of their own); a
-  // failed upload doesn't stop the release. Without a token prebuild leaves them out (app.config.ts).
-  process.env.AUTO_RELEASE = "false";
-  process.env.SENTRY_ALLOW_FAILURE = "true";
-  run(
-    "pnpm",
-    ["exec", "expo", "prebuild", "--platform", "ios", "--clean", "--no-install"],
-    project,
-  );
-  run("pod", ["install"], NodePath.join(project, "ios"));
-} else {
-  run("node", [NodePath.join(root, "scripts/export-ios-resources.ts")]);
-}
+process.env.OTTER_APP_VARIANT = "production";
+process.env[app.versionEnv] = version;
+process.env[app.buildEnv] = build;
+process.env.EXPO_NO_DOTENV = "1";
+process.env.EXPO_NO_CLIENT_ENV_VARS = "1";
+// Sentry's build phases upload the source maps (with debug IDs: no release of their own); a
+// failed upload doesn't stop the release. Without a token prebuild leaves them out (app.config.ts).
+process.env.AUTO_RELEASE = "false";
+process.env.SENTRY_ALLOW_FAILURE = "true";
+run("pnpm", ["exec", "expo", "prebuild", "--platform", "ios", "--clean", "--no-install"], project);
+run("pod", ["install"], NodePath.join(project, "ios"));
 
 const archive = NodePath.join(work, `${app.scheme}.xcarchive`);
 run("xcodebuild", [
-  ...(app.expo
-    ? ["-workspace", NodePath.join(project, "ios", `${app.scheme}.xcworkspace`)]
-    : ["-project", project]),
+  "-workspace",
+  NodePath.join(project, "ios", `${app.scheme}.xcworkspace`),
   "-scheme",
   app.scheme,
   "-configuration",

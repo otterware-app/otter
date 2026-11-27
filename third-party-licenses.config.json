@@ -2,7 +2,7 @@
   "customNotices": [
     {
       "name": "T3 Code",
-      "bundles": ["agents-mobile", "desktop", "ios", "web"],
+      "bundles": ["agents-mobile", "desktop", "mail-mobile", "web"],
       "license": "MIT",
       "sourceUrl": "https://github.com/pingdotgg/t3code",
       "generatedNotices": [
@@ -37,14 +37,14 @@
     },
     {
       "name": "Inter",
-      "bundles": ["agents-mobile", "ios"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "OFL-1.1",
       "sourceUrl": "https://github.com/rsms/inter",
       "noticeFile": "packages/ui-native/fonts/Inter-LICENSE.txt"
     },
     {
       "name": "Sentry",
-      "bundles": ["agents-mobile", "ios"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "sourceUrl": "https://github.com/getsentry/sentry-cocoa",
       "generatedNotices": [
@@ -56,14 +56,14 @@
     },
     {
       "name": "Hermes",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "sourceUrl": "https://github.com/facebook/hermes",
       "noticeFile": "third-party-licenses/native/hermes.txt"
     },
     {
       "name": "Boost",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSL-1.0",
       "version": "1.84.0",
       "sourceUrl": "https://github.com/boostorg/boost",
@@ -71,7 +71,7 @@
     },
     {
       "name": "double-conversion",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-3-Clause",
       "version": "1.1.6",
       "sourceUrl": "https://github.com/google/double-conversion",
@@ -79,7 +79,7 @@
     },
     {
       "name": "fast_float",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "Apache-2.0 OR BSL-1.0 OR MIT",
       "version": "8.0.0",
       "sourceUrl": "https://github.com/fastfloat/fast_float",
@@ -91,7 +91,7 @@
     },
     {
       "name": "{fmt}",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "version": "12.1.0",
       "sourceUrl": "https://github.com/fmtlib/fmt",
@@ -99,7 +99,7 @@
     },
     {
       "name": "glog",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-3-Clause",
       "version": "0.3.5",
       "sourceUrl": "https://github.com/google/glog",
@@ -107,7 +107,7 @@
     },
     {
       "name": "Folly",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "Apache-2.0",
       "version": "2024.11.18.00",
       "sourceUrl": "https://github.com/facebook/folly",
@@ -115,7 +115,7 @@
     },
     {
       "name": "SocketRocket",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-3-Clause",
       "version": "0.7.1",
       "sourceUrl": "https://github.com/facebook/SocketRocket",
@@ -123,7 +123,7 @@
     },
     {
       "name": "SQLite",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "blessing",
       "version": "3.53.3",
       "sourceUrl": "https://sqlite.org",
@@ -131,14 +131,14 @@
     },
     {
       "name": "MD4C",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "sourceUrl": "https://github.com/mity/md4c",
       "noticeFile": "third-party-licenses/native/md4c.txt"
     },
     {
       "name": "SDWebImage",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "version": "5.21.6",
       "sourceUrl": "https://github.com/SDWebImage/SDWebImage",
@@ -146,7 +146,7 @@
     },
     {
       "name": "SDWebImageAVIFCoder",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "version": "0.12.0",
       "sourceUrl": "https://github.com/SDWebImage/SDWebImageAVIFCoder",
@@ -154,7 +154,7 @@
     },
     {
       "name": "SDWebImageSVGCoder",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "version": "1.8.0",
       "sourceUrl": "https://github.com/SDWebImage/SDWebImageSVGCoder",
@@ -162,7 +162,7 @@
     },
     {
       "name": "SDWebImageWebPCoder",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "MIT",
       "version": "0.15.0",
       "sourceUrl": "https://github.com/SDWebImage/SDWebImageWebPCoder",
@@ -170,7 +170,7 @@
     },
     {
       "name": "libavif",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-2-Clause",
       "version": "1.0.0",
       "sourceUrl": "https://github.com/AOMediaCodec/libavif",
@@ -178,7 +178,7 @@
     },
     {
       "name": "libaom",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-2-Clause",
       "version": "3.0.0",
       "sourceUrl": "https://aomedia.googlesource.com/aom",
@@ -189,7 +189,7 @@
     },
     {
       "name": "libwebp",
-      "bundles": ["agents-mobile"],
+      "bundles": ["agents-mobile", "mail-mobile"],
       "license": "BSD-3-Clause",
       "sourceUrl": "https://github.com/webmproject/libwebp",
       "noticeFiles": [

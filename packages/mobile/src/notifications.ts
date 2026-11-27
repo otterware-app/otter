@@ -17,9 +17,21 @@ type AgentNotificationPolicy = {
 };
 
 let agents: AgentNotificationPolicy | null = null;
+let mail: ((notification: Notification) => NotificationBehavior) | null = null;
+let mailWithPush: ReadonlySet<string> = new Set();
 
 export function setAgentNotificationPolicy(policy: AgentNotificationPolicy | null): void {
   agents = policy;
+}
+
+export function setMailNotificationPolicy(
+  policy: ((notification: Notification) => NotificationBehavior) | null,
+): void {
+  mail = policy;
+}
+
+export function setMailPushAccounts(accounts: readonly string[]): void {
+  mailWithPush = new Set(accounts);
 }
 
 /** iOS passes the relay's custom APNs keys in the trigger payload. */
@@ -45,6 +57,7 @@ export function localNotifications(): Pick<
         kind === "agent-clear" ||
         notification.request.content.data?.agentNotification === true;
       if (isAgent && agents) return agents.present(notification);
+      if (!isAgent && mail) return mail(notification);
       return {
         shouldShowBanner: !isAgent,
         shouldShowList: !isAgent,
@@ -56,6 +69,12 @@ export function localNotifications(): Pick<
 
   return {
     notify(notification) {
+      if (
+        notification.category === "mail" &&
+        notification.open &&
+        mailWithPush.has(notification.open.accountId)
+      )
+        return;
       void (async () => {
         const agent = notification.category === "agent" ? agents : null;
         if (notification.category === "agent" && !agent?.enabled()) return;

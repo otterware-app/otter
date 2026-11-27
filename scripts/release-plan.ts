@@ -22,8 +22,6 @@ const NAMES: Record<App, string> = {
 // repository, less what only another part ships (the iPhone apps, the relay, which Cloudflare
 // deploys, and what is about the repository itself).
 const NOT_DESKTOP = [
-  "apps/ios/",
-  "apps/ios-agents/",
   "apps/agents-mobile/",
   "apps/mail-mobile/",
   "packages/mobile/",
@@ -34,8 +32,22 @@ const NOT_DESKTOP = [
   ".github/",
   ".agents/",
 ];
-const IOS_SCRIPTS = ["scripts/export-ios-resources.ts", "scripts/release-ios.ts"];
-const IPHONE = ["apps/ios/", "packages/shared/", ...IOS_SCRIPTS];
+const IPHONE = [
+  "apps/mail-mobile/",
+  "packages/client/",
+  "packages/contracts/",
+  "packages/core/",
+  "packages/mobile/",
+  "packages/shared/",
+  "packages/ui-native/",
+  "extensions/translation/core/",
+  "extensions/translation/manifest.ts",
+  "extensions/translation/package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "patches/",
+  "scripts/release-ios.ts",
+];
 const AGENTS = [
   "apps/agents-mobile/",
   "packages/client/",

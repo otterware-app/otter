@@ -38,8 +38,9 @@ Everything goes through `packages/shared/src/error-reports.ts`:
   `outlook`) and for IMAP `server` (a known provider's host or `other`). The channel is the
   `environment` (`stable`, `nightly`). Pass them as `logger.failure(scope, message, err, tags)`.
 
-Settings → General → Support → **Send error reports** (on by default, per device) turns them
-off; reports from before the app knows the choice are held, then sent or dropped.
+Settings → General → Support → **Send error reports** (on by default, per device; on the iPhone,
+Otter Mail's Settings → Support) turns them off; reports from before the app knows the choice are
+held, then sent or dropped.
 
 ## Logging so it's reported
 
@@ -56,14 +57,14 @@ A relay 5xx is a warning on the devices too: the relay reports it once itself.
 
 ## Where it's wired
 
-| Part    | Sends from                                                                        | Code                                                            |
-| ------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Desktop | main, for every process (Sentry's Electron IPC)                                   | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
-| Web     | the page; the worker hands it its lines                                           | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
-| Relay   | the Worker and its Durable Objects                                                | `infra/relay/src/error-reports.ts`                              |
-| iPhone  | the app (crashes as stack traces, hangs from iOS's MetricKit; Settings › Support) | `apps/ios/OtterMail/Reports/` (the same rules, in Swift)        |
-| Agents  | Otter Agents for iPhone, core's lines through `reportLog`                         | `apps/agents-mobile/src/error-reports.ts`, `packages/mobile`    |
-| Site    | the site Worker                                                                   | `site/src/worker.ts`                                            |
+| Part    | Sends from                                                                  | Code                                                            |
+| ------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Desktop | main, for every process (Sentry's Electron IPC)                             | `apps/desktop/src/error-reports.ts`, `backend.ts`, `preload.ts` |
+| Web     | the page; the worker hands it its lines                                     | `apps/web/src/main/error-reports.ts`, `src/web/backend.ts`      |
+| Relay   | the Worker and its Durable Objects                                          | `infra/relay/src/error-reports.ts`                              |
+| iPhone  | Otter Mail for iPhone, core's lines through `reportLog`; Settings › Support | `apps/mail-mobile/src/error-reports.ts`, `packages/mobile`      |
+| Agents  | Otter Agents for iPhone, core's lines through `reportLog`                   | `apps/agents-mobile/src/error-reports.ts`, `packages/mobile`    |
+| Site    | the site Worker                                                             | `site/src/worker.ts`                                            |
 
 The relay logs its push pipeline as one JSON line per event (`infra/relay/src/log.ts`):
 `push.received`, `push.fanout`, `mail.arrived`, `mail.check_failed`, `watch.renewed`,
@@ -73,12 +74,13 @@ passes.
 
 A build reports when its app has a DSN (`SENTRY_DSN` in `error-reports.ts`) and it's a
 release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
-`pnpm dev:desktop`) report too. A local relay never does.
+`pnpm dev:desktop`) report too, and `EXPO_PUBLIC_OTTER_ERROR_REPORTS=1` an iPhone one (Metro's
+environment for `pnpm dev:mobile:mail`, `pnpm dev:mobile:agents`). A local relay never does.
 
 ## Setup
 
 1. Sentry projects: `otter-mail-desktop` (Electron), `otter-mail-web` (React),
-   `otter-mail-relay` (Cloudflare), `otter-site` (Cloudflare), `otter-mail-ios` (Cocoa),
+   `otter-mail-relay` (Cloudflare), `otter-site` (Cloudflare), `otter-mail-ios` and
    `otter-agents-ios` (React Native). Paste their DSNs into `SENTRY_DSN`. They're public: they
    ship in the apps.
 2. Source maps, so stacks show our TypeScript: an auth token (scope `project:releases`) as
@@ -87,8 +89,9 @@ release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    - The relay's: the Relay source maps workflow, with the same two (see infra/relay's README).
    - The web app's deploy (`site/scripts/build.ts`, in the Release workflow) uses the same two;
      `scripts/upload-sourcemaps.ts` skips the upload without them.
-   - The iPhone's dSYMs (`otter-mail-ios`): the Release workflow's iPhone job uploads them with the
-     same secret and variable (`scripts/release-ios.ts`).
+   - The iPhone apps' source maps and dSYMs (`otter-mail-ios`, `otter-agents-ios`): the Release
+     workflow's iPhone job uploads them with the same secret and variable (`scripts/release-ios.ts`,
+     and the Sentry Expo plugin's build phases).
 3. In each project's settings: keep the server-side data scrubber on for secrets, as a second
    net.
 4. Alerts: the default "new issue" alert is enough to start.
@@ -103,7 +106,8 @@ release; `OTTER_ERROR_REPORTS=1` lets a development build (`pnpm dev:fake`,
    Sentry resolves an issue only through a release in the issue's own project, so the iPhone has
    its own: the last step of the Release workflow's iPhone job (`scripts/sentry-release-ios.ts`)
    runs once App Store Connect has the build, and creates `otter-mail-ios@<version>+<build>` in
-   `otter-mail-ios`, the exact name the app reports (`ErrorReports.swift`). It attaches every
+   `otter-mail-ios`, the exact name the app reports (`apps/mail-mobile/src/error-reports.ts`;
+   Otter Agents' `otter-agents-ios@…` in its own project, with `--app agents`). It attaches every
    commit from the previous `ios-vX.Y.Z` tag to the released commit, then finalizes the release.
    An iPhone fix says `Fixes OTTER-MAIL-IOS-<n>` and resolves with the next iPhone release. If
    the step fails, the build and tag still go out: make the release by hand, as below.

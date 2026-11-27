@@ -1,0 +1,53 @@
+diff --git a/dist/recyclerview/RecyclerView.js b/dist/recyclerview/RecyclerView.js
+index 6799c8a61bff4607633196097da35c7a6975f0b6..b1692843b697f3a6914644eb2c37a8a46114924a 100644
+--- a/dist/recyclerview/RecyclerView.js
++++ b/dist/recyclerview/RecyclerView.js
+@@ -297,15 +297,19 @@ const RecyclerViewComponent = (props, ref) => {
+         inverted,
+     ]);
+     // Set up scroll event handling with animation support for sticky headers
++    // Whether there are sticky headers, not their element: a new event detaches the old one from
++    // the scroll view and attaches the new one, natively, each time the data or the sticky
++    // header changes.
++    const hasStickyHeaders = stickyHeaders !== null;
+     const animatedEvent = useMemo(() => {
+-        if (stickyHeaders) {
++        if (hasStickyHeaders) {
+             return Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                 useNativeDriver: stickyHeaderUseNativeDriver,
+                 listener: onScrollHandler,
+             });
+         }
+         return onScrollHandler;
+-    }, [onScrollHandler, scrollY, stickyHeaders, stickyHeaderUseNativeDriver]);
++    }, [onScrollHandler, scrollY, hasStickyHeaders, stickyHeaderUseNativeDriver]);
+     const shouldMaintainVisibleContentPosition = recyclerViewManager.shouldMaintainVisibleContentPosition();
+     const maintainVisibleContentPositionInternal = useMemo(() => {
+         if (shouldMaintainVisibleContentPosition) {
+diff --git a/src/recyclerview/RecyclerView.tsx b/src/recyclerview/RecyclerView.tsx
+index 3c25e7e893004932b8a13072e01fe2a940d365d4..8ae376738f8735f12ca8e148073356f4967fb4ed 100644
+--- a/src/recyclerview/RecyclerView.tsx
++++ b/src/recyclerview/RecyclerView.tsx
+@@ -470,8 +470,12 @@ const RecyclerViewComponent = <T,>(
+   ]);
+ 
+   // Set up scroll event handling with animation support for sticky headers
++  // Whether there are sticky headers, not their element: a new event detaches the old one from
++  // the scroll view and attaches the new one, natively, each time the data or the sticky header
++  // changes.
++  const hasStickyHeaders = stickyHeaders !== null;
+   const animatedEvent = useMemo(() => {
+-    if (stickyHeaders) {
++    if (hasStickyHeaders) {
+       return Animated.event(
+         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+         {
+@@ -481,7 +485,7 @@ const RecyclerViewComponent = <T,>(
+       );
+     }
+     return onScrollHandler;
+-  }, [onScrollHandler, scrollY, stickyHeaders, stickyHeaderUseNativeDriver]);
++  }, [onScrollHandler, scrollY, hasStickyHeaders, stickyHeaderUseNativeDriver]);
+ 
+   const shouldMaintainVisibleContentPosition =
+     recyclerViewManager.shouldMaintainVisibleContentPosition();

@@ -96,18 +96,22 @@ export async function mirrorDraft(
       hasAttachments: (content.attachments?.length ?? 0) > 0,
     };
     if (summary.hasAttachments) {
-      mailStore.upsertMessages(accountId, [summary]);
       mailStore.invalidateMessageDetail(accountId, res.messageId);
+      mailStore.upsertMessages(accountId, [summary], { counted: true });
     } else {
-      mailStore.upsertMessageDetail(accountId, {
-        ...summary,
-        draftRevision: res.revision,
-        cc: content.cc,
-        bcc: content.bcc,
-        bodyHtml: content.bodyHtml ?? null,
-        bodyText: content.body,
-        attachments: [],
-      });
+      mailStore.upsertMessageDetail(
+        accountId,
+        {
+          ...summary,
+          draftRevision: res.revision,
+          cc: content.cc,
+          bcc: content.bcc,
+          bodyHtml: content.bodyHtml ?? null,
+          bodyText: content.body,
+          attachments: [],
+        },
+        { counted: true },
+      );
     }
     mailStore.setDraftId(accountId, res.messageId, res.draftId);
     if (res.threadId) mailStore.deleteOtherDraftsInThread(accountId, res.threadId, res.messageId);

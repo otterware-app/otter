@@ -54,6 +54,33 @@ it("a draft doesn't move its thread up the list", () => {
   ]);
 });
 
+it("pages a dense Inbox by thread date and keeps older results in a sparse Inbox", () => {
+  const rows = [
+    row("sent", "replied", 200, ["SENT"]),
+    row("trashed", "replied", 600, ["TRASH"]),
+    row("binned", "binned", 700, ["INBOX", "SPAM"]),
+    row("draft-only", "draft-only", 150, ["INBOX", "DRAFT"]),
+    row("one", "one", 810, ["INBOX"]),
+    row("two", "two", 810, ["INBOX"]),
+    row("two-copy", "two", 810, ["INBOX"]),
+  ];
+  store.upsertMessages("me", rows);
+  const baseline = { aliases: [], sendAs: [] };
+  for (const offset of [0, 1, 2, 3, 4]) {
+    expect(store.getThreadsPage("me", "INBOX", offset, 1)).toEqual(
+      store.getThreadsPage("me", "INBOX", offset, 1, baseline),
+    );
+  }
+
+  store.upsertMessages(
+    "me",
+    Array.from({ length: 1024 }, (_, i) => row(`archived-${i}`, `archived-${i}`, 1_000 + i, [])),
+  );
+  expect(store.getThreadsPage("me", "INBOX", 0, 2)).toEqual(
+    store.getThreadsPage("me", "INBOX", 0, 2, baseline),
+  );
+});
+
 it("the Drafts view sorts by the drafts themselves", () => {
   const drafts = store.getThreadsPage("me", "DRAFT", 0, 10).messages;
   expect(drafts.map((m) => [m.threadId, m.date])).toEqual([
@@ -72,6 +99,36 @@ it("keeps a message's Reply-To with its detail", () => {
   expect(store.getMessageDetail("me", "asked")?.replyTo).toBe("Support <help@example.com>");
   store.upsertMessageDetail("me", { ...detail, attachments: [] });
   expect(store.getMessageDetail("me", "asked")?.replyTo).toBeUndefined();
+});
+
+it("takes a summary's attachments until the message is downloaded, never its lack of them", () => {
+  const attached = () => store.getThreadMessages("me", "trip")[0].hasAttachments;
+  const summary = { ...row("photos", "trip", 500, ["INBOX"]), hasAttachments: true };
+  store.upsertMessages("me", [summary]);
+  expect(attached()).toBe(true);
+  store.upsertMessages("me", [{ ...summary, hasAttachments: false }]);
+  expect(attached()).toBe(true);
+
+  const detail = { ...summary, hasAttachments: false, bodyHtml: null, bodyText: "Hi" };
+  store.upsertMessageDetail("me", { ...detail, attachments: [] });
+  expect(attached()).toBe(false);
+  store.upsertMessages("me", [summary]);
+  expect(attached()).toBe(false);
+});
+
+it("keeps a downloaded message's attachments when its body is read again", () => {
+  const attached = () => store.getThreadMessages("me", "billing")[0].hasAttachments;
+  const summary = { ...row("invoice", "billing", 600, ["INBOX"]), hasAttachments: false };
+  store.upsertMessageDetail("me", {
+    ...summary,
+    hasAttachments: true,
+    bodyHtml: null,
+    bodyText: "Attached",
+    attachments: [{ id: "a1", filename: "invoice.pdf", mimeType: "application/pdf", size: 10 }],
+  });
+  store.invalidateMessageDetail("me", "invoice");
+  store.upsertMessages("me", [summary]);
+  expect(attached()).toBe(true);
 });
 
 it("reads details cached before Reply-To was kept again", async () => {
@@ -132,6 +189,22 @@ it("moves a thread when its other messages change", () => {
   expect(inbox()).toEqual(["other", "replied"]);
   store.deleteMessage("me", "newer");
   expect(inbox()).toEqual(["replied"]);
+});
+
+it("indexes a write's threads in its transaction, so no read catches up on a whole sync", () => {
+  const stale = () => database.prepare("SELECT COUNT(*) AS n FROM stale_threads").get()!.n;
+  const indexed = (threadId: string) =>
+    database
+      .prepare("SELECT labelId FROM thread_labels WHERE threadId = ? ORDER BY labelId")
+      .all(threadId)
+      .map((r) => r.labelId);
+  expect(stale()).toBe(0);
+  store.upsertMessages("me", [row("later", "later", 500, ["INBOX"])]);
+  expect(stale()).toBe(0);
+  expect(indexed("later")).toEqual(["ALL_MAIL", "INBOX"]);
+  store.applyHistoryChanges("me", [{ kind: "labelsAdded", id: "later", labelIds: ["STARRED"] }]);
+  expect(stale()).toBe(0);
+  expect(indexed("later")).toEqual(["ALL_MAIL", "INBOX", "STARRED"]);
 });
 
 it("lists threads cached before they were indexed", async () => {
