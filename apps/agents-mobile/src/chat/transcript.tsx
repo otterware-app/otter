@@ -4,6 +4,7 @@ import { formatDuration, shownItems, splitAnswer } from "@otter/client/agents/ch
 import { chatChangeKey, chatChangeLine, mergeChatChanges } from "@otter/client/agents/chat-changes";
 import { citationText } from "@otter/client/agents/chat-cite";
 import { STOPPED, retryTurn } from "@otter/client/agents/chat-store";
+import { callUnsaid } from "@otter/client/agents/talk";
 import { clockText } from "@otter/client/agents/chat-time";
 import { replyBubbles, writtenBubbles } from "@otter/client/agents/reply-bubbles";
 import {
@@ -418,6 +419,7 @@ export function AssistantTurn({
   found,
   canFork,
   onFork,
+  speaking = false,
 }: {
   row: ReplyRow;
   /** The agent's name. */
@@ -430,6 +432,8 @@ export function AssistantTurn({
   found: boolean;
   canFork: boolean;
   onFork: () => void;
+  /** Being said in the call going on: its words light up as the voice reaches them. */
+  speaking?: boolean;
 }) {
   const theme = useTheme();
   const { turn } = row;
@@ -532,18 +536,21 @@ export function AssistantTurn({
           <WorkLog items={work} live={Boolean(live)} turnId={turn.id} />
         </View>
       ) : null}
-      {bubbles.map((markdown, index) => (
-        <ReplyBubble
-          key={getMappingKey(`${turn.id}-${index}`, index)}
-          markdown={markdown}
-          first={index === 0}
-          last={index === bubbles.length - 1}
-          time={time}
-          answer={time && index === bubbles.length - 1 ? answer : ""}
-          canFork={canFork}
-          onFork={onFork}
-        />
-      ))}
+      {speaking ? (
+        <SpokenWords text={said} />
+      ) : (
+        bubbles.map((markdown, index) => (
+          <ReplyText
+            key={getMappingKey(`${turn.id}-${index}`, index)}
+            markdown={markdown}
+            last={index === bubbles.length - 1}
+            time={time}
+            answer={time && index === bubbles.length - 1 ? answer : ""}
+            canFork={canFork}
+            onFork={onFork}
+          />
+        ))
+      )}
       {live && !work.length ? <TypingBubble /> : null}
       {turn.error ? (
         <Failure error={turn.error} name={name} retry={row.retry} turnId={turn.id} />
@@ -576,10 +583,12 @@ export function AssistantTurn({
   );
 }
 
-/** A paragraph of the answer in its bubble; the last carries the time and, beside it, Fork and Copy. */
-const ReplyBubble = memo(function ReplyBubble({
+/**
+ * A paragraph of the answer, on the page as in Claude's app; the last carries the time, Fork and
+ * Copy under it.
+ */
+const ReplyText = memo(function ReplyText({
   markdown,
-  first,
   last,
   time,
   answer,
@@ -587,81 +596,84 @@ const ReplyBubble = memo(function ReplyBubble({
   onFork,
 }: {
   markdown: string;
-  first: boolean;
   last: boolean;
   time: string | undefined;
   answer: string;
   canFork: boolean;
   onFork: () => void;
 }) {
-  const theme = useTheme();
   const { quote } = use(ChatTextContext);
   const stamp = last ? time : undefined;
-  const inlineStamp = endsInText(markdown);
-  const room = useStampRoom(inlineStamp ? stamp : undefined);
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: 8,
-        paddingRight: last ? 8 : 44,
-      }}
-    >
-      <SwipeToReply
-        onReply={quote && (() => quote(citationText(markdown)))}
-        style={{ flexShrink: 1 }}
-      >
-        <Bubble
-          side="leading"
-          joinsAbove={!first}
-          joinsBelow={!last}
-          style={{ flexShrink: 1, paddingHorizontal: 11, paddingTop: 6, paddingBottom: 7 }}
-        >
-          <ChatMarkdown markdown={markdown} reserve={room.reserve} />
-          {stamp ? (
-            <Text
-              size="2xs"
-              color="mutedForeground"
-              tabular
-              onLayout={room.onLayout}
-              style={
-                inlineStamp
-                  ? { position: "absolute", right: 9, bottom: 5 }
-                  : { alignSelf: "flex-end", marginTop: 2 }
-              }
-            >
-              {stamp}
-            </Text>
-          ) : null}
-        </Bubble>
+    <View style={{ alignSelf: "stretch", paddingHorizontal: 4, paddingBottom: last ? 0 : 8 }}>
+      <SwipeToReply onReply={quote && (() => quote(citationText(markdown)))}>
+        <ChatMarkdown markdown={markdown} />
       </SwipeToReply>
-      {stamp && answer ? (
-        <View style={{ gap: 6 }}>
-          {canFork ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Fork from here"
-              hitSlop={6}
-              onPress={onFork}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: theme.radius.full,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: alpha(bubbleColors(theme).incoming, 0.85),
-              }}
-            >
-              <Icon name="arrow.triangle.branch" size={13} color="mutedForeground" />
-            </Pressable>
-          ) : null}
-          <CopyButton text={answer} />
-        </View>
+      {stamp ? (
+        <ReplyActions time={stamp} answer={answer} canFork={canFork} onFork={onFork} />
       ) : null}
     </View>
   );
 });
+
+/** Under an answer: when it came, then Fork and Copy. */
+function ReplyActions({
+  time,
+  answer,
+  canFork,
+  onFork,
+}: {
+  time: string;
+  answer: string;
+  canFork: boolean;
+  onFork: () => void;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+      <Text size="2xs" color="mutedForeground" tabular style={{ marginRight: 4 }}>
+        {time}
+      </Text>
+      {answer && canFork ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fork from here"
+          hitSlop={6}
+          onPress={onFork}
+          style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}
+        >
+          <Icon name="arrow.triangle.branch" size={13} color="mutedForeground" />
+        </Pressable>
+      ) : null}
+      {answer ? <CopyButton text={answer} /> : null}
+    </View>
+  );
+}
+
+/**
+ * What the voice is saying in a call, lit as it's said: the words it hasn't reached yet stay dim,
+ * as Claude's voice mode does.
+ */
+function SpokenWords({ text }: { text: string }) {
+  const [unsaid, setUnsaid] = useState(() => callUnsaid());
+  useEffect(() => {
+    const timer = setInterval(() => setUnsaid(callUnsaid()), 80);
+    return () => clearInterval(timer);
+  }, []);
+  // A word lights up whole, as the voice starts it.
+  const reached = Math.max(0, text.length - unsaid);
+  const space = text.indexOf(" ", reached);
+  const said = unsaid === 0 || space < 0 ? text.length : space;
+  return (
+    <View style={{ alignSelf: "stretch", paddingHorizontal: 4 }}>
+      <Text size="base" style={{ lineHeight: 23 }}>
+        {text.slice(0, said)}
+        <Text size="base" color="faintForeground" style={{ lineHeight: 23 }}>
+          {text.slice(said)}
+        </Text>
+      </Text>
+    </View>
+  );
+}
 
 function Failure({
   error,
