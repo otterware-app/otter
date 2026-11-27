@@ -1,5 +1,5 @@
 import { mailApi } from "@otter/client/mail/api";
-import type { SyncStatus } from "@otter/client/mail/types";
+import { useSyncStatus } from "@otter/client/mail/hooks";
 import { appFiles } from "@otter/mobile/files";
 import { longestSqlite, longTasks } from "@otter/mobile/long-tasks";
 import { startup } from "@otter/mobile/start";
@@ -38,13 +38,12 @@ function replayText(replay: Replay) {
  */
 export function BenchmarkStatus({
   accountId,
-  status,
   scrollTo,
 }: {
   accountId: string;
-  status: SyncStatus | null;
   scrollTo?: (offset: number) => void;
 }) {
+  const status = useSyncStatus(accountId);
   const [result, setResult] = useState<FirstSync>();
   const [replay, setReplay] = useState<string>();
   const [running, setRunning] = useState(false);

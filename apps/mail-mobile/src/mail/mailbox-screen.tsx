@@ -1,11 +1,16 @@
 import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { mailApi } from "@otter/client/mail/api";
 import { capabilitiesOf } from "@otter/client/mail/capabilities";
-import { formatDayLabel } from "@otter/client/mail/format";
-import { useAccountSync, useLabels, useMarkLabelRead, useMessages } from "@otter/client/mail/hooks";
+import {
+  useAccountSync,
+  useLabels,
+  useMarkLabelRead,
+  useMessages,
+  useSyncStatus,
+} from "@otter/client/mail/hooks";
 import { folderName } from "@otter/client/mail/label-names";
 import { groupMessagesByDay } from "@otter/client/mail/rows";
-import type { MessageSummary } from "@otter/client/mail/types";
+import type { MessageSummary, SyncStatus } from "@otter/client/mail/types";
 import { startup } from "@otter/mobile/start";
 import { Button } from "@otter/ui-native/components/button";
 import { EmptyState } from "@otter/ui-native/components/empty-state";
@@ -14,9 +19,19 @@ import { Icon } from "@otter/ui-native/components/icon";
 import { Spinner } from "@otter/ui-native/components/spinner";
 import { Text } from "@otter/ui-native/components/text";
 import { alpha, useTheme } from "@otter/ui-native/theme";
-import { FlashList, type FlashListRef } from "@shopify/flash-list";
+import { FlashList, type FlashListRef, type ListRenderItemInfo } from "@shopify/flash-list";
 import { Link, Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -32,6 +47,7 @@ import {
 import { MenuButton, type MenuAction } from "../frame/menu-button.tsx";
 import { usePreference } from "../settings/preferences.ts";
 import { BenchmarkStatus } from "./benchmark-status.tsx";
+import { dayLabel } from "./format-date.ts";
 import {
   confirmDelete,
   hasLabels,
@@ -54,6 +70,22 @@ const emptyDrafts: RecoveryDraft[] = [];
 const codeLifetime = 30 * 60_000;
 type Row = { day: number; count: number; unread: number } | { message: MessageSummary };
 const unread = (message: MessageSummary) => message.threadUnread ?? message.unread;
+const syncFlags = ({ signInNeeded, syncing }: SyncStatus) => ({ signInNeeded, syncing });
+
+/** Syncs the mailbox and refreshes its lists, apart from the list: while it syncs, its status moves at every poll. */
+function AccountSync({ accountId }: { accountId: string }) {
+  useAccountSync(accountId);
+  return null;
+}
+
+// A message keeps its row while the list refetches (React Query keeps unchanged messages as they
+// were), so the rows that didn't change aren't drawn again.
+const messageRows = new WeakMap<MessageSummary, Row>();
+function messageRow(message: MessageSummary): Row {
+  let row = messageRows.get(message);
+  if (!row) messageRows.set(message, (row = { message }));
+  return row;
+}
 
 export function MailboxScreen() {
   const { account, label } = useLocalSearchParams<{ account: string; label: string }>();
@@ -103,7 +135,7 @@ function MailboxList({
   );
   const labels = useLabels(account.id, alias);
   const messages = useMessages(account.id, label, alias);
-  const sync = useAccountSync(account.id);
+  const sync = useSyncStatus(account.id, syncFlags);
   const markLabelRead = useMarkLabelRead();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -152,10 +184,10 @@ function MailboxList({
   }, [messages.data, keptDrafts]);
   const listed = useMemo(() => (unreadOnly ? all.filter(unread) : all), [all, unreadOnly]);
   const rows = useMemo<Row[]>(() => {
-    if (!groupByDay) return listed.map((message) => ({ message }));
+    if (!groupByDay) return listed.map(messageRow);
     return groupMessagesByDay(listed).flatMap(({ day, messages: entries }) => [
       { day, count: entries.length, unread: entries.filter(unread).length },
-      ...(collapsed.has(day) ? [] : entries.map((message) => ({ message }))),
+      ...(collapsed.has(day) ? [] : entries.map(messageRow)),
     ]);
   }, [listed, collapsed, groupByDay]);
   const codes = useMemo(() => {
@@ -336,8 +368,61 @@ function MailboxList({
     );
   }
 
+  const own = useMemo(
+    () => [account.email, ...(account.sendAs ?? [])],
+    [account.email, account.sendAs],
+  );
+  const codeKey = [...codes.keys()].join("\n");
+  const labelsKey = currentLabels.map(({ id, name }) => `${id}:${name}`).join("\n");
+  const latest = useRef<RowHandlers>(null!);
+  // oxlint-disable-next-line react/refs -- Rows call the latest handlers; `rowContext` says when they draw again.
+  latest.current = {
+    act,
+    toggleSelection,
+    rowMenu,
+    canArchive: actions.canArchive,
+    hasCode: (threadId) => codes.has(threadId),
+  };
+  // Rows draw again when what they show changes, not each time the list does (as sync's status
+  // moves): `codeKey`, `labelsKey` and `agents` change what `latest` gives them.
+  const rowContext = useMemo<RowContext>(
+    () => ({
+      look: look.id,
+      accountId: account.id,
+      label,
+      own,
+      flagged: !capabilities.stars,
+      fullWidth,
+      selected,
+      collapsed,
+      setCollapsed,
+      canvas: theme.colors.canvas,
+      destructive,
+      destructiveTitle,
+      latest,
+      keys: [codeKey, labelsKey, agents],
+    }),
+    [
+      look.id,
+      account.id,
+      label,
+      own,
+      capabilities.stars,
+      fullWidth,
+      selected,
+      collapsed,
+      theme.colors.canvas,
+      destructive,
+      destructiveTitle,
+      codeKey,
+      labelsKey,
+      agents,
+    ],
+  );
+
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
+      <AccountSync accountId={account.id} />
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -391,90 +476,11 @@ function MailboxList({
       <FlashList
         ref={list}
         data={rows}
-        extraData={selected}
+        extraData={rowContext}
         getItemType={(item) => ("day" in item ? "day" : "thread")}
         keyExtractor={(item) => ("day" in item ? `day:${item.day}` : item.message.threadId)}
         stickyHeaderIndices={stickyDays}
-        renderItem={({ item, target }) => {
-          if ("day" in item)
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: !collapsed.has(item.day) }}
-                onPress={() =>
-                  setCollapsed((current) => {
-                    const next = new Set(current);
-                    if (!next.delete(item.day)) next.add(item.day);
-                    return next;
-                  })
-                }
-                style={[
-                  styles.day,
-                  target === "StickyHeader"
-                    ? { backgroundColor: theme.colors.canvas }
-                    : styles.dayGap,
-                ]}
-              >
-                <Icon
-                  name={collapsed.has(item.day) ? "chevron.right" : "chevron.down"}
-                  size={9}
-                  color="mutedForeground"
-                />
-                <Text size="body" weight="medium" style={{ flex: 1 }}>
-                  {formatDayLabel(item.day)}
-                </Text>
-                <Text size="body" color="mutedForeground" tabular>
-                  {item.count}
-                  {item.unread > 0 ? ` · ${item.unread} unread` : ""}
-                </Text>
-              </Pressable>
-            );
-          const message = item.message;
-          const canRestore = isBin || label === "ARCHIVE";
-          const row = (
-            <MailRow
-              message={message}
-              account={look.id}
-              label={label}
-              own={[account.email, ...(account.sendAs ?? [])]}
-              codeAccount={codes.has(message.threadId) ? account.id : undefined}
-              trashCode={isBin ? undefined : () => act("trash", [message])}
-              flagged={!capabilities.stars}
-              fullWidth={fullWidth}
-              selected={selected?.has(message.threadId)}
-              onSelect={selected ? () => toggleSelection(message.threadId) : undefined}
-              leading={
-                canRestore
-                  ? {
-                      title: "Move to Inbox",
-                      icon: "tray.and.arrow.down",
-                      run: () => act("restore", [message]),
-                    }
-                  : actions.canArchive(message)
-                    ? { title: "Archive", icon: "archivebox", run: () => act("archive", [message]) }
-                    : undefined
-              }
-              trailing={{
-                title: destructiveTitle,
-                icon: "trash",
-                run: () => act(destructive, [message]),
-              }}
-            />
-          );
-          if (selected) return row;
-          return (
-            <Link
-              href={{
-                pathname: "/mail/[account]/[label]/[thread]",
-                params: { account: look.id, label, thread: message.threadId },
-              }}
-              asChild
-            >
-              <Link.Trigger>{row}</Link.Trigger>
-              {rowMenu(message)}
-            </Link>
-          );
-        }}
+        renderItem={renderRow}
         onViewableItemsChanged={({ viewableItems }) => {
           if (!startup.listShownAt && viewableItems.some(({ item }) => "message" in item))
             startup.listShownAt = Date.now();
@@ -497,7 +503,6 @@ function MailboxList({
           isBenchmark ? (
             <BenchmarkStatus
               accountId={account.id}
-              status={sync}
               scrollTo={autoBenchmark ? autoScroll : undefined}
             />
           ) : (
@@ -642,7 +647,6 @@ function MailboxList({
           mailbox={mailbox}
           labels={currentLabels}
           selected={label}
-          status={sync}
           onPick={(id) => open(look.id, id)}
           onSync={() => {
             setSheet(null);
@@ -764,6 +768,118 @@ function MailboxList({
         }}
       />
     </View>
+  );
+}
+
+type RowHandlers = {
+  act: (action: MailAction, entries: MessageSummary[]) => void;
+  toggleSelection: (threadId: string) => void;
+  rowMenu: (message: MessageSummary) => ReactNode;
+  canArchive: (message: MessageSummary) => boolean;
+  hasCode: (threadId: string) => boolean;
+};
+
+type RowContext = {
+  look: string;
+  accountId: string;
+  label: string;
+  own: string[];
+  flagged: boolean;
+  fullWidth: boolean;
+  selected: Set<string> | null;
+  collapsed: Set<number>;
+  setCollapsed: Dispatch<SetStateAction<Set<number>>>;
+  canvas: string;
+  destructive: MailAction;
+  destructiveTitle: string;
+  latest: RefObject<RowHandlers>;
+  keys: unknown[];
+};
+
+function renderRow({ item, target, extraData }: ListRenderItemInfo<Row>) {
+  const context = extraData as RowContext;
+  if ("day" in item)
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: !context.collapsed.has(item.day) }}
+        onPress={() =>
+          context.setCollapsed((current) => {
+            const next = new Set(current);
+            if (!next.delete(item.day)) next.add(item.day);
+            return next;
+          })
+        }
+        style={[
+          styles.day,
+          target === "StickyHeader" ? { backgroundColor: context.canvas } : styles.dayGap,
+        ]}
+      >
+        <Icon
+          name={context.collapsed.has(item.day) ? "chevron.right" : "chevron.down"}
+          size={9}
+          color="mutedForeground"
+        />
+        <Text size="body" weight="medium" style={{ flex: 1 }}>
+          {dayLabel(item.day)}
+        </Text>
+        <Text size="body" color="mutedForeground" tabular>
+          {item.count}
+          {item.unread > 0 ? ` · ${item.unread} unread` : ""}
+        </Text>
+      </Pressable>
+    );
+  const message = item.message;
+  const { label, selected } = context;
+  const handlers = context.latest.current;
+  const isBin = label === "TRASH" || label === "SPAM";
+  const canRestore = isBin || label === "ARCHIVE";
+  const row = (
+    <MailRow
+      message={message}
+      account={context.look}
+      label={label}
+      own={context.own}
+      codeAccount={handlers.hasCode(message.threadId) ? context.accountId : undefined}
+      trashCode={isBin ? undefined : () => handlers.act("trash", [message])}
+      flagged={context.flagged}
+      fullWidth={context.fullWidth}
+      selected={selected?.has(message.threadId)}
+      onSelect={selected ? () => handlers.toggleSelection(message.threadId) : undefined}
+      leading={
+        canRestore
+          ? {
+              title: "Move to Inbox",
+              icon: "tray.and.arrow.down",
+              run: () => handlers.act("restore", [message]),
+            }
+          : handlers.canArchive(message)
+            ? {
+                title: "Archive",
+                icon: "archivebox",
+                run: () => handlers.act("archive", [message]),
+              }
+            : undefined
+      }
+      trailing={{
+        title: context.destructiveTitle,
+        icon: "trash",
+        run: () => handlers.act(context.destructive, [message]),
+      }}
+    />
+  );
+  if (selected) return row;
+  return (
+    <Link
+      href={{
+        pathname: "/mail/[account]/[label]/[thread]",
+        params: { account: context.look, label, thread: message.threadId },
+      }}
+      asChild
+    >
+      <Link.Trigger>{row}</Link.Trigger>
+      {handlers.rowMenu(message)}
+    </Link>
   );
 }
 

@@ -1,8 +1,8 @@
 import { getAccountDisplayName } from "@otter/client/mail/account-style";
 import { capabilitiesOf } from "@otter/client/mail/capabilities";
-import { syncLabel, useLabels } from "@otter/client/mail/hooks";
+import { syncLabel, useLabels, useSyncStatus } from "@otter/client/mail/hooks";
 import { ALL_MAIL_LABEL_ID } from "@otter/client/mail/label-names";
-import type { MailLabel, MessageSummary, SyncStatus } from "@otter/client/mail/types";
+import type { MailLabel, MessageSummary } from "@otter/client/mail/types";
 import { Glass } from "@otter/ui-native/components/glass";
 import { Icon, type IconName } from "@otter/ui-native/components/icon";
 import { Text } from "@otter/ui-native/components/text";
@@ -541,17 +541,16 @@ export function PlacesCard({
   mailbox,
   labels,
   selected,
-  status,
   onPick,
   onSync,
 }: {
   mailbox: Mailbox;
   labels: MailLabel[];
   selected: string;
-  status: SyncStatus | null;
   onPick: (id: string) => void;
   onSync: () => void;
 }) {
+  const status = useSyncStatus(mailbox.account.id);
   const places = mailPlaces(mailbox.account, labels);
   const rows = (items: typeof places.system, nested = false) =>
     items.map(({ id, icon, title, label }) => (

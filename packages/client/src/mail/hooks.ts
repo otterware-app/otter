@@ -1492,6 +1492,25 @@ export function syncStatusPollMs(status: SyncStatus | undefined): number {
   return status?.download ? 4000 : 10_000;
 }
 
+/**
+ * The account's sync status as `useAccountSync` polls it, without starting a sync: `select` picks
+ * what the caller shows, so it renders again when that changes, not at every poll.
+ */
+export function useSyncStatus<T = SyncStatus>(
+  accountId: string | null,
+  select?: (status: SyncStatus) => T,
+): T | null {
+  return (
+    useQuery<SyncStatus, Error, T>({
+      queryKey: ["gmail:syncStatus", accountId],
+      queryFn: () => mailApi.getSyncStatus(accountId!),
+      enabled: accountId != null,
+      refetchInterval: (query) => syncStatusPollMs(query.state.data),
+      select,
+    }).data ?? null
+  );
+}
+
 export function useAccountSync(accountId: string | null): SyncStatus | null {
   const qc = useQueryClient();
 
