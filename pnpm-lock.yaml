@@ -78,6 +78,7 @@ overrides:
 
 patchedDependencies:
   '@expo/dom-webview@58.0.2': dbf0b7e4048757ca727f9536e375480d95eeb186cb418e2eee01dc92ad06a437
+  '@shopify/flash-list@2.3.2': 6516678174f68d89df291e59ce202fce2b915f21122941d615a77c99c6277308
   expo-dev-launcher@58.0.21: c186d2076e6a9c3ee8a672e3ff953c57dfcde9854df889cb892a16eb8d4a3416
   postal-mime@4.0.0: fa2a91409bf717f35920cffdcef874a2be95b90865f226d9dad99d9a5a01d1ee
 
@@ -156,7 +157,7 @@ importers:
         version: 8.28.1(@babel/core@7.29.13)(@expo/config-types@58.0.3)(@expo/config@58.0.12(typescript@5.9.3))(@expo/env@2.6.0)(dotenv@17.4.2)(expo-router@58.0.32)(expo-updates@58.0.22(expo-dev-client@58.0.21(expo@58.0.26)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0)))(expo@58.0.26)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0))(expo@58.0.26)(metro-config@0.87.3)(metro-resolver@0.87.3)(metro@0.87.3)(open@8.4.2)(promise@8.3.0)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
       '@shopify/flash-list':
         specifier: 2.3.2
-        version: 2.3.2(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+        version: 2.3.2(patch_hash=6516678174f68d89df291e59ce202fce2b915f21122941d615a77c99c6277308)(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.103.2(react@19.3.0)
@@ -365,7 +366,7 @@ importers:
         version: 8.28.1(@babel/core@7.29.13)(@expo/config-types@58.0.3)(@expo/config@58.0.12(typescript@5.9.3))(@expo/env@2.6.0)(dotenv@17.4.2)(expo-router@58.0.32)(expo-updates@58.0.22(expo-dev-client@58.0.21(expo@58.0.26)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0)))(expo@58.0.26)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0))(expo@58.0.26)(metro-config@0.87.3)(metro-resolver@0.87.3)(metro@0.87.3)(open@8.4.2)(promise@8.3.0)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
       '@shopify/flash-list':
         specifier: 2.3.2
-        version: 2.3.2(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+        version: 2.3.2(patch_hash=6516678174f68d89df291e59ce202fce2b915f21122941d615a77c99c6277308)(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.103.2(react@19.3.0)
@@ -12060,7 +12061,7 @@ snapshots:
       '@types/react': 19.3.0
       react: 19.3.0
 
-  '@shopify/flash-list@2.3.2(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)':
+  '@shopify/flash-list@2.3.2(patch_hash=6516678174f68d89df291e59ce202fce2b915f21122941d615a77c99c6277308)(@babel/runtime@7.29.7)(react-native@0.88.1(@babel/core@7.29.13)(@react-native/metro-config@0.88.1(@babel/core@7.29.13))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@babel/runtime': 7.29.7
       react: 19.3.0
