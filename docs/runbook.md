@@ -87,10 +87,12 @@ The Expo app `apps/mail-mobile`, released on its own, with its own version (`ios
 only when it or what it bundles (the shared packages, the Translation extension) has changed. A
 Mac release doesn't need one.
 
-1. Each merge to main that touches the Expo app or its dependencies
-   releases it as a patch (the Release workflow's "Otter Mail for iPhone" job); one waits while
-   another runs, and a newer merge replaces the one waiting. For a minor or major version, or
-   to run it yourself: Actions → **Release** → Run workflow → `apps=iphone` and `patch`,
+1. Each merge to main that touches the Expo app or its dependencies ships it: as an
+   over-the-air update when its native code is the last build's ("Otter Mail update", a minute;
+   phones run it from their next launch), else as a patch build (the "Otter Mail for iPhone"
+   job). The run's summary says which and why. One waits while another runs, and a newer merge
+   replaces the one waiting. For a minor or major version, or to run it yourself (always a
+   build): Actions → **Release** → Run workflow → `apps=iphone` and `patch`,
    `minor` or `major` (or `gh workflow run release.yml -f apps=iphone -f bump=minor`). It
    generates the native project from `main`, builds it on GitHub's `xcode-27` runner
    (`scripts/release-ios.ts`) and uploads it, then tags the commit and bumps the version on

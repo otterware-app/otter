@@ -354,8 +354,8 @@ tests and the desktop app's packaging, unsigned. The lint, typecheck and test jo
 `.github/workflows/checks.yml`, which a release runs too.
 
 The iPhone jobs generate each Expo app's native project and build the app and its notification
-extension for the simulator, unsigned. Otter Agents builds only when its native fingerprint
-changed (`scripts/agents-runtime.ts`); its JavaScript is checked with the rest. Their logic is
+extension for the simulator, unsigned. Each builds only when its native fingerprint
+changed (`scripts/ios-runtime.ts`); their JavaScript is checked with the rest. Their logic is
 tested where it lives, in vitest.
 
 Typecheck and tests run through `vp run --cache`: Vite+ records every file a package's task

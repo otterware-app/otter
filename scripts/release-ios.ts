@@ -96,7 +96,12 @@ run("pnpm", ["exec", "expo", "prebuild", "--platform", "ios", "--clean", "--no-i
 run("pod", ["install"], NodePath.join(project, "ios"));
 
 const archive = NodePath.join(work, `${app.scheme}.xcarchive`);
+// Xcode's compilation cache keys each Swift and Clang compile by its inputs, so a build reuses
+// what an earlier one compiled. The Release workflow keeps OTTER_IOS_DERIVED_DATA's
+// CompilationCache.noindex between runs.
+const derivedData = process.env.OTTER_IOS_DERIVED_DATA;
 run("xcodebuild", [
+  ...(derivedData ? ["-derivedDataPath", derivedData] : []),
   "-workspace",
   NodePath.join(project, "ios", `${app.scheme}.xcworkspace`),
   "-scheme",
@@ -109,6 +114,7 @@ run("xcodebuild", [
   archive,
   `MARKETING_VERSION=${version}`,
   `CURRENT_PROJECT_VERSION=${build}`,
+  "COMPILATION_CACHE_ENABLE_CACHING=YES",
   "-quiet",
   "archive",
 ]);

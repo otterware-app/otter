@@ -387,7 +387,7 @@ About 3,000 lines, out of about 31,000:
   Build isn't needed. `release-plan.ts` changes: a phone app now ships when core, the client
   package or an extension changes, which is most merges, so the phone moves to nightly-style
   batching like the desktop.
-- **Later, optional**: over-the-air updates (`expo-updates`), which would ship JavaScript-only
+- **Done**: over-the-air updates (`expo-updates`), which ship JavaScript-only
   fixes without a TestFlight build.
 
 ## Phases

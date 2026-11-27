@@ -160,8 +160,8 @@ jobs:
 
   mail:
     name: iPhone, Otter Mail
-    needs: changes
-    if: needs.changes.outputs.mail == 'true'
+    needs: mail-native
+    if: needs.mail-native.outputs.changed == 'true'
     runs-on: xcode-27
     timeout-minutes: 35
     env:
@@ -188,18 +188,20 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/otter-mail-build" \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build
 
-  # The Expo app's Xcode build takes ~20 minutes, mostly React Native's pods. Most changes are
+  # An Expo app's Xcode build takes ~20 minutes, mostly React Native's pods. Most changes are
   # JavaScript, which Checks covers: build only when the native app's fingerprint
-  # (scripts/agents-runtime.ts) differs from the base's, or the lockfile changed.
-  agents-native:
-    name: Otter Agents, native changes
+  # (scripts/ios-runtime.ts) differs from the base's, or the lockfile changed.
+  mail-native:
+    name: Otter Mail, native changes
     needs: changes
-    if: needs.changes.outputs.agents == 'true'
+    if: needs.changes.outputs.mail == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      IOS_APP: mail
     outputs:
       changed: ${{ steps.compare.outputs.changed }}
-    steps:
+    steps: &native_steps
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -215,7 +217,7 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          runtime() { node scripts/agents-runtime.ts | grep -oE '[0-9a-f]{40}\.$' | tr -d .; }
+          runtime() { node scripts/ios-runtime.ts --app "$IOS_APP" | grep -oE '[0-9a-f]{40}\.$' | tr -d .; }
           if [[ "$EVENT" != pull_request ]] ||
             ! git diff --quiet "$PR_BASE" HEAD -- pnpm-lock.yaml; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -226,6 +228,18 @@ jobs:
           base="$(runtime)"
           echo "Head $head, base $base."
           echo "changed=$([[ "$head" != "$base" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  agents-native:
+    name: Otter Agents, native changes
+    needs: changes
+    if: needs.changes.outputs.agents == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      IOS_APP: agents
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    steps: *native_steps
 
   agents:
     name: iPhone, Otter Agents
