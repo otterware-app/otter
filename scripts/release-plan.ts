@@ -46,6 +46,7 @@ const IPHONE = [
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "patches/",
+  "scripts/ios-runtime.ts",
   "scripts/release-ios.ts",
 ];
 const AGENTS = [
@@ -66,7 +67,7 @@ const AGENTS = [
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "patches/",
-  "scripts/agents-runtime.ts",
+  "scripts/ios-runtime.ts",
   "scripts/release-ios.ts",
 ];
 

@@ -271,13 +271,13 @@ stable and nightly channels. The iPhone apps release separately, each with its o
   `otter-mail-site-nightly` Worker; a stable release, after its GitHub Release, to otter.otterware.app. Both answer at
   otter.otterware.app (one browser cache and sign-in): Settings → General's channel sets a
   cookie the stable Worker routes on (`site/src/worker.ts`); open tabs offer "Reload to update".
-- iPhone: Otter Mail (`apps/mail-mobile`) releases as a patch on each merge to main that
-  changes it or what it bundles (the shared packages, the Translation extension). Run it by
-  hand with `apps=iphone` and a `bump` for a minor or major version. `scripts/release-ios.ts`
-  generates the Expo native project, archives it with `xcodebuild`, uploads to TestFlight, and
-  the workflow tags `ios-vX.Y.Z`. Otter Agents (`apps/agents-mobile`) is released the same way
-  with `apps=agents` and `ios-agents-vX.Y.Z` tags; most of its merges ship as an over-the-air
-  update instead of a build.
+- iPhone: Otter Mail (`apps/mail-mobile`) ships on each merge to main that changes it or what
+  it bundles (the shared packages, the Translation extension): as an over-the-air update (EAS
+  Update) when its native code is the last build's, else as a patch build. Run it by hand with
+  `apps=iphone` (always a build) and a `bump` for a minor or major version.
+  `scripts/release-ios.ts` generates the Expo native project, archives it with `xcodebuild`,
+  uploads to TestFlight, and the workflow tags `ios-vX.Y.Z`. Otter Agents (`apps/agents-mobile`)
+  is released the same way with `apps=agents` and `ios-agents-vX.Y.Z` tags.
 
 `docs/runbook.md` is the short version of shipping each part; details in `docs/release.md`.
 

@@ -159,7 +159,8 @@ app before; the Expo app kept its App Store record, bundle IDs, version line and
 installs over the Swift build in place.
 
 1. The Release workflow's "Otter Mail for iPhone" job runs on each push to `main` that changes
-   the Expo Mail app or its release inputs, as a patch. Its releases go one at a time.
+   the Expo Mail app's native code, as a patch; a push that changes only its JavaScript ships as
+   an over-the-air update instead (below, as Otter Agents does). Its releases go one at a time.
    While one runs, only the newest push waits. For a
    minor or major version: Actions → Release → Run workflow, `apps=iphone` and `patch`, `minor`
    or `major`; or `gh workflow run release.yml -f apps=iphone -f bump=minor` (or
@@ -169,7 +170,9 @@ installs over the Swift build in place.
 2. On GitHub's `xcode-27` runner, `scripts/release-ios.ts` generates the native project
    (`expo prebuild`, then CocoaPods), archives the app and its notification extension with
    `xcodebuild`, and uploads the signed build to App Store Connect. The build number is the
-   time (YYYYMMDDhhmm).
+   time (YYYYMMDDhhmm). Xcode's compilation cache (`COMPILATION_CACHE_ENABLE_CACHING`) keeps
+   every Swift and Clang compile by its inputs; the job restores it from GitHub's cache
+   (`xcode-cas-release-<app>-…`) and saves it after, so a build recompiles only what changed.
 3. Only once the upload succeeded does it tag the commit `ios-vX.Y.Z` and commit the version to
    the Expo package on `main`. It makes no GitHub Release:
    the Mac app updates from the latest one.
@@ -215,18 +218,19 @@ The workflow installs the workspace dependencies, generates the production Expo 
 and builds, signs and uploads using `scripts/release-ios.ts --app agents`.
 It tags the commit and records the published version in the package manifest.
 
-Most merges don't build: like t3code's app, Otter Agents takes over-the-air updates
-(`expo-updates`, published with EAS Update to the `production` channel of the `otterware-app`
-Expo project). The "Otter Agents, build or update" job takes the native app's fingerprint
-(`scripts/agents-runtime.ts`; what counts is Expo's fingerprint plus
-`apps/agents-mobile/fingerprint.config.cjs`: the notification extension and `patches/`). The
-newest `ios-agents-v*` tag records the fingerprint its build runs. When they match, the
-"Otter Agents update" job publishes the JavaScript as an update for that build, in about a
-minute; the app downloads it at launch and runs it from the next launch. When they differ (a
+Most merges don't build: like t3code's app, both iPhone apps take over-the-air updates
+(`expo-updates`, published with EAS Update to the `production` channel of each app's
+`otterware-app` Expo project). The "Otter Agents, build or update" job (and "Otter Mail, build
+or update") takes the native app's fingerprint (`scripts/ios-runtime.ts --app agents|mail`;
+what counts is Expo's fingerprint plus the app's `fingerprint.config.cjs`: the notification
+extension and `patches/`). The newest `ios-agents-v*` (`ios-v*`) tag records the fingerprint
+its build runs ("Otter Agents runtime: …", "Otter Mail runtime: …"). When they match, the
+"Otter Agents update" ("Otter Mail update") job publishes the JavaScript as an update for that
+build, in about a minute; the app downloads it at launch and runs it from the next launch. When they differ (a
 native module, a config plugin, the extension, a dependency with native code), it builds as
 above, with the fingerprint as the build's runtime version. A run by hand always builds. The
 update job signs in to Expo with the `EXPO_TOKEN` secret, a robot token
-(`otter-github-releases`). A build from this Mac (`pnpm release:ios:agents`) records no
+(`otter-github-releases`). A build from this Mac (`pnpm release:ios`, `pnpm release:ios:agents`) records no
 fingerprint and takes no updates; merges keep comparing with the last build the workflow made.
 
 It signs with Otter Mail's Apple Distribution identity and App Store Connect API key (the

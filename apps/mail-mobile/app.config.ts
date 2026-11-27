@@ -8,12 +8,28 @@ const googleClientId = production
   : "997327858649-0dfa4knnv1ur7021dn1ojuovoj1i3ed8.apps.googleusercontent.com";
 const icon = "./assets/Assets.xcassets/AppIcon.appiconset";
 
+const projectId = "2fbe5710-15c4-4415-a161-6653afc1db9e";
+/**
+ * The native app's fingerprint, which a release build and the updates published for it share
+ * (scripts/ios-runtime.ts): an update reaches only the builds whose native code it runs on.
+ */
+const runtimeVersion = process.env.OTTER_MAIL_RUNTIME_VERSION;
+
 const config: ExpoConfig = {
   name: "Otter Mail",
   slug: "otter-mail",
   owner: "otterware-app",
-  extra: { eas: { projectId: "2fbe5710-15c4-4415-a161-6653afc1db9e" } },
+  extra: { eas: { projectId } },
   version: process.env.OTTER_MAIL_RELEASE_VERSION ?? version,
+  runtimeVersion: runtimeVersion ?? { policy: "appVersion" },
+  // Checked at launch and applied at the next one, as t3code's app does.
+  updates: {
+    enabled: Boolean(runtimeVersion),
+    url: `https://u.expo.dev/${projectId}`,
+    checkAutomatically: "ON_LOAD",
+    fallbackToCacheTimeout: 0,
+    requestHeaders: { "expo-channel-name": "production" },
+  },
   platforms: ["ios"],
   orientation: "portrait",
   userInterfaceStyle: "automatic",
