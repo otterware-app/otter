@@ -244,8 +244,6 @@ function Chat({ chat }: { chat: Conversation }) {
   const { covered } = keyboard;
   const scrollToTurn = useCallback(
     (index: number, animated: boolean) => {
-      // What's found stays in view: what's written next doesn't pull the chat back to its end.
-      following.current = false;
       const ref = list.current;
       const layout = ref?.getLayout(index);
       if (!ref || !layout) return;
@@ -257,7 +255,10 @@ function Chat({ chat }: { chat: Conversation }) {
         layout.height > bottom - above || top < offset + above
           ? top - above
           : Math.max(offset, top + layout.height - bottom);
-      if (y !== offset) ref.scrollToOffset({ offset: y, animated, skipFirstItemOffset: true });
+      if (y === offset) return;
+      // What's found stays in view: what's written next doesn't pull the chat back to its end.
+      following.current = false;
+      ref.scrollToOffset({ offset: y, animated, skipFirstItemOffset: true });
     },
     [covered, headerHeight],
   );
