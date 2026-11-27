@@ -1,5 +1,4 @@
 import type { ChatTurn } from "@otter/contracts/chats";
-import { useEffect } from "react";
 import { create } from "zustand";
 import { listen } from "../bridge.ts";
 import { host } from "../host.ts";
@@ -15,8 +14,6 @@ export type Speaker = {
   play: (pcm: Int16Array) => void;
   /** Stops what's playing and drops what's queued (the agent was interrupted). */
   clear: () => void;
-  /** A soft cue: the agent is working, the call isn't stuck. */
-  cue: () => void;
   /** Until what's queued has played. */
   pendingMs: () => number | Promise<number>;
   /** How loud what's playing now is (0–1). */
@@ -68,8 +65,6 @@ const CHUNK_MS = 40;
 const MAX_UNSENT_MS = 3000;
 /** The agent counts as speaking this long after it last made a sound, between words. */
 const SPEAKING_HOLD_MS = 600;
-/** While the agent works and the voice has been quiet this long, a soft cue: the call isn't stuck. */
-const CUE_AFTER_MS = 6000;
 
 let mic: Microphone | null = null;
 let speaker: Speaker | null = null;
@@ -295,21 +290,6 @@ export function callUnsaid(): number {
   if (reaches.length === 0 && now - Math.max(playsUntil, wordsAt) > SAID_AFTER_MS)
     playedChars = agentChars;
   return Math.max(0, agentChars - playedChars);
-}
-
-/** While the agent works on a live call and its voice has long been quiet, a soft cue now and then. */
-export function useWorkingCue(working: boolean, live: boolean): void {
-  useEffect(() => {
-    if (!working || !live) return;
-    let cuedAt = performance.now();
-    const timer = setInterval(() => {
-      const now = performance.now();
-      if (now - Math.max(spokeAt, cuedAt) < CUE_AFTER_MS) return;
-      cuedAt = now;
-      speaker?.cue();
-    }, 500);
-    return () => clearInterval(timer);
-  }, [working, live]);
 }
 
 /** What the call bar says. */

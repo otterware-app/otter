@@ -11,7 +11,6 @@ import {
   endCall,
   muteCall,
   startCall,
-  useWorkingCue,
   type Call,
 } from "@otter/client/agents/talk";
 import { browserTalkAudio } from "./talk-audio";
@@ -62,7 +61,6 @@ export function TalkBar({ call, name, compact }: { call: Call; name: string; com
   const working = useChats((s) => Boolean(s.runs[call.chatId]));
   const convo = useChats((s) => s.conversations.find((c) => c.id === call.chatId));
   const connecting = call.liveAt === null;
-  useWorkingCue(working, !connecting);
   const caption = convo ? callCaption(convo.turns, since) : null;
   const saying = caption && !caption.done ? caption : null;
   const muteLabel = call.muted ? "Unmute" : "Mute";
