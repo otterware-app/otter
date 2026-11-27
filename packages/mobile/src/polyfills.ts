@@ -2,7 +2,7 @@
  * What Hermes (React Native 0.88, Expo SDK 58) lacks of what core and the extensions use: Web
  * Crypto, and `Array#toSorted`. Imported by the app's entry before anything else; nothing here imports core.
  */
-import { CryptoDigestAlgorithm, digest, getRandomValues, randomUUID } from "expo-crypto";
+import { CryptoDigestAlgorithm, digest, getRandomValues } from "expo-crypto";
 
 import { native } from "./native.ts";
 
@@ -121,7 +121,24 @@ if (!crypto.getRandomValues) {
   polyfilled.push("crypto.getRandomValues");
 }
 if (!crypto.randomUUID) {
-  crypto.randomUUID = randomUUID as Crypto["randomUUID"];
+  // Random bytes come 4 KB at a time: one call to the native module per 256 ids, not one each
+  // (Sentry makes several per traced call).
+  const pool = new Uint8Array(4096);
+  let used = pool.length;
+  const hex = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
+  crypto.randomUUID = () => {
+    if (used + 16 > pool.length) {
+      getRandomValues(pool);
+      used = 0;
+    }
+    const b = pool.subarray(used, (used += 16));
+    b[6] = (b[6]! & 0x0f) | 0x40;
+    b[8] = (b[8]! & 0x3f) | 0x80;
+    const h = Array.from(b, (byte) => hex[byte]!);
+    return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}` as ReturnType<
+      Crypto["randomUUID"]
+    >;
+  };
   polyfilled.push("crypto.randomUUID");
 }
 if (!crypto.subtle) {

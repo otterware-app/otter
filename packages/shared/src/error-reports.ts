@@ -168,13 +168,17 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   return scrubDeep(breadcrumb, 2) as Breadcrumb;
 }
 
-/** A span in the current trace; without a Sentry client it only runs `work`. */
+/**
+ * A span in the current trace; without a Sentry client it only runs `work` (a span would still
+ * copy the scope and make ids, on every handler call).
+ */
 export function measure<T>(
   name: string,
   op: string,
   work: () => T,
   attributes?: Record<string, string | number | boolean>,
 ): T {
+  if (!getClient()) return work();
   return startSpan({ name, op, attributes: { ...attributes, "sentry.op": op } }, work);
 }
 
