@@ -27,12 +27,17 @@ import {
   useMemo,
   useRef,
   useState,
-  type Dispatch,
   type ReactNode,
   type RefObject,
-  type SetStateAction,
 } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { LayoutAnimation, Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LayoutAnimationConfig,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { autoBenchmark, benchmarkAccountId } from "../core.ts";
@@ -69,6 +74,18 @@ const empty: MessageSummary[] = [];
 const emptyDrafts: RecoveryDraft[] = [];
 const codeLifetime = 30 * 60_000;
 type Row = { day: number; count: number; unread: number } | { message: MessageSummary };
+/** What takes a conversation out of the list it's in. */
+const leavesList = new Set<MailAction>([
+  "archive",
+  "trash",
+  "restore",
+  "junk",
+  "delete",
+  "discard",
+]);
+/** Selecting swaps the bar for the selection's, as SwiftUI's `.smooth(duration: 0.18)`. */
+const barIn = FadeIn.duration(180);
+const barOut = FadeOut.duration(180);
 const unread = (message: MessageSummary) => message.threadUnread ?? message.unread;
 const syncFlags = ({ signInNeeded, syncing }: SyncStatus) => ({ signInNeeded, syncing });
 
@@ -93,14 +110,7 @@ export function MailboxScreen() {
   const enabled = mailboxes.filter((mailbox) => mailbox.enabled);
   const current = enabled.find((mailbox) => mailbox.look.id === account);
   if (current) {
-    return (
-      <MailboxList
-        key={JSON.stringify([account, label])}
-        mailbox={current}
-        label={label}
-        mailboxes={enabled}
-      />
-    );
+    return <MailboxList mailbox={current} label={label} mailboxes={enabled} />;
   }
   if (isPending) return <Spinner />;
   if (isError) return <EmptyState title="Couldn't load mailboxes" icon="tray" />;
@@ -154,6 +164,20 @@ function MailboxList({
   const [refreshing, setRefreshing] = useState(false);
   const lastScroll = useRef(0);
   const list = useRef<FlashListRef<Row>>(null);
+  const place = `${look.id}\n${label}`;
+  // Another place is the same screen with what it shows set again, as the Swift app's `select`:
+  // no screen pushed over this one, the bar staying put.
+  const [shownPlace, setShownPlace] = useState(place);
+  if (shownPlace !== place) {
+    setShownPlace(place);
+    setSheet(null);
+    setRecent(null);
+    setLabelPicker(null);
+    setUnreadOnly(false);
+    setCollapsed(new Set());
+    setSelected(null);
+    setHidden(false);
+  }
   const autoScroll = useCallback(
     (offset: number) => list.current?.scrollToOffset({ offset, animated: true }),
     [],
@@ -215,9 +239,22 @@ function MailboxList({
   function open(next: string, folder: string) {
     setSheet(null);
     if (look.id === next && label === folder) return;
-    router.replace({
-      pathname: "/mail/[account]/[label]",
-      params: { account: next, label: folder },
+    lastScroll.current = 0;
+    router.setParams({ account: next, label: folder });
+  }
+
+  /** Rows coming and going ease into place, as SwiftUI's `withAnimation` around the change. */
+  const animateRows = useCallback((duration: number) => {
+    list.current?.prepareForLayoutAnimationRender();
+    LayoutAnimation.configureNext(LayoutAnimation.create(duration, "easeInEaseOut", "opacity"));
+  }, []);
+
+  function toggleDay(day: number) {
+    animateRows(300);
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(day)) next.add(day);
+      return next;
     });
   }
 
@@ -245,6 +282,7 @@ function MailboxList({
 
   function act(action: MailAction, entries: MessageSummary[], endSelection = false) {
     const run = () => {
+      if (leavesList.has(action)) animateRows(180);
       void actions.run(action, entries).then((ok) => {
         if (ok && endSelection) setSelected(null);
       });
@@ -387,6 +425,7 @@ function MailboxList({
   latest.current = {
     act,
     toggleSelection,
+    toggleDay,
     rowMenu,
     canArchive: actions.canArchive,
     hasCode: (threadId) => codes.has(threadId),
@@ -403,8 +442,10 @@ function MailboxList({
       fullWidth,
       selected,
       collapsed,
-      setCollapsed,
       canvas: theme.colors.canvas,
+      error: theme.colors.error,
+      archive: theme.scheme === "dark" ? "#5e5ce6" : "#5856d6",
+      restore: theme.colors.primary,
       destructive,
       destructiveTitle,
       latest,
@@ -420,6 +461,9 @@ function MailboxList({
       selected,
       collapsed,
       theme.colors.canvas,
+      theme.colors.error,
+      theme.colors.primary,
+      theme.scheme,
       destructive,
       destructiveTitle,
       codeKey,
@@ -482,6 +526,7 @@ function MailboxList({
         )}
       </View>
       <FlashList
+        key={place}
         ref={list}
         data={rows}
         extraData={rowContext}
@@ -563,7 +608,11 @@ function MailboxList({
                         key={filter}
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
-                        onPress={() => setUnreadOnly(Boolean(index))}
+                        onPress={() => {
+                          if (unreadOnly === Boolean(index)) return;
+                          animateRows(180);
+                          setUnreadOnly(Boolean(index));
+                        }}
                         style={[
                           styles.filter,
                           active && { backgroundColor: alpha(theme.colors.foreground, 0.08) },
@@ -620,8 +669,10 @@ function MailboxList({
           folder={recent ?? "INBOX"}
           messages={recentMessages.data?.pages[0]?.messages ?? empty}
           onOpen={(message) => {
+            const folder = recent ?? "INBOX";
             setRecent(null);
-            openThread(recent ?? "INBOX", message);
+            open(look.id, folder);
+            openThread(folder, message);
           }}
           onCompose={() => {
             setRecent(null);
@@ -662,107 +713,122 @@ function MailboxList({
           }}
         />
       </MailPopover>
-      {selected ? (
-        <View pointerEvents="box-none" style={[styles.selectionBar, { bottom: insets.bottom + 6 }]}>
-          <MenuButton
-            accessibilityLabel={`${picked.length} selected`}
-            sections={[
-              [
-                {
-                  title: picked.length === listed.length ? "Deselect all" : "Select all",
-                  onPress: () =>
-                    setSelected(
-                      picked.length === listed.length
-                        ? new Set()
-                        : new Set(listed.map((message) => message.threadId)),
-                    ),
-                },
-              ],
-            ]}
+      <LayoutAnimationConfig skipEntering>
+        {selected ? (
+          <Animated.View
+            entering={barIn}
+            exiting={barOut}
+            pointerEvents="box-none"
+            style={[styles.selectionBar, { bottom: insets.bottom + 6 }]}
           >
-            <Glass interactive style={styles.selectionCount}>
-              <Text size="lg" color="primary">
-                {picked.length} selected
-              </Text>
-            </Glass>
-          </MenuButton>
-          <View style={{ flex: 1 }} />
-          <Glass style={styles.selectionPill}>
-            {agents ? (
-              <MailButton
-                title="Send to agent"
-                disabled={!picked.length}
-                onPress={() => {
-                  sendToAgent(picked.map((message) => mailPointer(account.email, message)));
-                  setSelected(null);
-                }}
-              >
-                <Icon name="sparkles" size={21} color="primary" />
-              </MailButton>
-            ) : null}
-            {isBin || label === "ARCHIVE" ? (
-              <MailButton
-                title="Move to Inbox"
-                disabled={!picked.length}
-                onPress={() => act("restore", picked, true)}
-              >
-                <Icon name="tray.and.arrow.down" size={21} color="primary" />
-              </MailButton>
-            ) : (
-              <MailButton
-                title="Archive"
-                disabled={!picked.some(actions.canArchive)}
-                onPress={() => act("archive", picked, true)}
-              >
-                <Icon name="archivebox" size={21} color="primary" />
-              </MailButton>
-            )}
             <MenuButton
-              accessibilityLabel="Message actions"
+              accessibilityLabel={`${picked.length} selected`}
               sections={[
-                selectionActions.map((action) => ({ ...action, disabled: !picked.length })),
+                [
+                  {
+                    title: picked.length === listed.length ? "Deselect all" : "Select all",
+                    onPress: () =>
+                      setSelected(
+                        picked.length === listed.length
+                          ? new Set()
+                          : new Set(listed.map((message) => message.threadId)),
+                      ),
+                  },
+                ],
               ]}
             >
-              <View style={[styles.selectionIcon, { opacity: picked.length ? 1 : 0.35 }]}>
-                <Icon name="tag" size={21} color="primary" />
-              </View>
+              <Glass interactive style={styles.selectionCount}>
+                <Text size="lg" color="primary">
+                  {picked.length} selected
+                </Text>
+              </Glass>
             </MenuButton>
-            <MailButton
-              title={destructive === "discard" ? "Discard drafts" : destructiveTitle}
-              disabled={!picked.length}
-              onPress={() => act(destructive, picked, true)}
-            >
-              <Icon name="trash" size={21} color="primary" />
-            </MailButton>
-          </Glass>
-        </View>
-      ) : (
-        <MailBar
-          mailbox={mailbox}
-          label={label}
-          reading={hidden && !isBenchmark}
-          unread={
-            Boolean(labels.data?.find(({ id }) => id === "INBOX")?.unread) ||
-            (label === "INBOX" && all.some(unread))
-          }
-          onMailbox={() => {
-            setRecent(null);
-            setSheet(sheet === "mailboxes" ? null : "mailboxes");
-          }}
-          onLabel={(id) => open(look.id, id)}
-          onFolders={() => {
-            setRecent(null);
-            setSheet(sheet === "folders" ? null : "folders");
-          }}
-          onSearch={() => router.push({ pathname: "/search", params: { account: look.id } })}
-          onCompose={() => compose()}
-          onSettings={() => router.push("/settings")}
-          onRecents={(folder) => {
-            setSheet(null);
-            setRecent(folder);
-          }}
-        />
-      )}
+            <View style={{ flex: 1 }} />
+            <Glass style={styles.selectionPill}>
+              {agents ? (
+                <MailButton
+                  title="Send to agent"
+                  disabled={!picked.length}
+                  onPress={() => {
+                    sendToAgent(picked.map((message) => mailPointer(account.email, message)));
+                    setSelected(null);
+                  }}
+                >
+                  <Icon name="sparkles" size={21} color="primary" />
+                </MailButton>
+              ) : null}
+              {isBin || label === "ARCHIVE" ? (
+                <MailButton
+                  title="Move to Inbox"
+                  disabled={!picked.length}
+                  onPress={() => act("restore", picked, true)}
+                >
+                  <Icon name="tray.and.arrow.down" size={21} color="primary" />
+                </MailButton>
+              ) : (
+                <MailButton
+                  title="Archive"
+                  disabled={!picked.some(actions.canArchive)}
+                  onPress={() => act("archive", picked, true)}
+                >
+                  <Icon name="archivebox" size={21} color="primary" />
+                </MailButton>
+              )}
+              <MenuButton
+                accessibilityLabel="Message actions"
+                sections={[
+                  // oxlint-disable-next-line react/refs -- The actions read the list's ref when pressed.
+                  selectionActions.map((action) => ({ ...action, disabled: !picked.length })),
+                ]}
+              >
+                <View style={[styles.selectionIcon, { opacity: picked.length ? 1 : 0.35 }]}>
+                  <Icon name="tag" size={21} color="primary" />
+                </View>
+              </MenuButton>
+              <MailButton
+                title={destructive === "discard" ? "Discard drafts" : destructiveTitle}
+                disabled={!picked.length}
+                onPress={() => act(destructive, picked, true)}
+              >
+                <Icon name="trash" size={21} color="primary" />
+              </MailButton>
+            </Glass>
+          </Animated.View>
+        ) : (
+          <Animated.View
+            entering={barIn}
+            exiting={barOut}
+            pointerEvents="box-none"
+            style={StyleSheet.absoluteFill}
+          >
+            <MailBar
+              mailbox={mailbox}
+              label={label}
+              reading={hidden && !isBenchmark}
+              unread={
+                Boolean(labels.data?.find(({ id }) => id === "INBOX")?.unread) ||
+                (label === "INBOX" && all.some(unread))
+              }
+              onMailbox={() => {
+                setRecent(null);
+                setSheet(sheet === "mailboxes" ? null : "mailboxes");
+              }}
+              onLabel={(id) => open(look.id, id)}
+              onFolders={() => {
+                setRecent(null);
+                setSheet(sheet === "folders" ? null : "folders");
+              }}
+              onSearch={() => router.push({ pathname: "/search", params: { account: look.id } })}
+              onCompose={() => compose()}
+              onSettings={() => router.push("/settings")}
+              onRecents={(folder) => {
+                setSheet(null);
+                setRecent(folder);
+              }}
+            />
+          </Animated.View>
+        )}
+      </LayoutAnimationConfig>
       <LabelSheet
         kind={labelPicker}
         account={account}
@@ -782,6 +848,7 @@ function MailboxList({
 type RowHandlers = {
   act: (action: MailAction, entries: MessageSummary[]) => void;
   toggleSelection: (threadId: string) => void;
+  toggleDay: (day: number) => void;
   rowMenu: (message: MessageSummary) => ReactNode;
   canArchive: (message: MessageSummary) => boolean;
   hasCode: (threadId: string) => boolean;
@@ -796,8 +863,10 @@ type RowContext = {
   fullWidth: boolean;
   selected: Set<string> | null;
   collapsed: Set<number>;
-  setCollapsed: Dispatch<SetStateAction<Set<number>>>;
   canvas: string;
+  error: string;
+  archive: string;
+  restore: string;
   destructive: MailAction;
   destructiveTitle: string;
   latest: RefObject<RowHandlers>;
@@ -808,34 +877,16 @@ function renderRow({ item, target, extraData }: ListRenderItemInfo<Row>) {
   const context = extraData as RowContext;
   if ("day" in item)
     return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: !context.collapsed.has(item.day) }}
-        onPress={() =>
-          context.setCollapsed((current) => {
-            const next = new Set(current);
-            if (!next.delete(item.day)) next.add(item.day);
-            return next;
-          })
-        }
-        style={[
-          styles.day,
-          target === "StickyHeader" ? { backgroundColor: context.canvas } : styles.dayGap,
-        ]}
-      >
-        <Icon
-          name={context.collapsed.has(item.day) ? "chevron.right" : "chevron.down"}
-          size={9}
-          color="mutedForeground"
-        />
-        <Text size="body" weight="medium" style={{ flex: 1 }}>
-          {dayLabel(item.day)}
-        </Text>
-        <Text size="body" color="mutedForeground" tabular>
-          {item.count}
-          {item.unread > 0 ? ` · ${item.unread} unread` : ""}
-        </Text>
-      </Pressable>
+      <DayHeader
+        key={item.day}
+        day={item.day}
+        count={item.count}
+        unread={item.unread}
+        collapsed={context.collapsed.has(item.day)}
+        sticky={target === "StickyHeader"}
+        canvas={context.canvas}
+        onToggle={() => context.latest.current.toggleDay(item.day)}
+      />
     );
   const message = item.message;
   const { label, selected } = context;
@@ -859,20 +910,23 @@ function renderRow({ item, target, extraData }: ListRenderItemInfo<Row>) {
           ? {
               title: "Move to Inbox",
               icon: "tray.and.arrow.down",
-              run: () => handlers.act("restore", [message]),
+              tint: context.restore,
+              onPerform: () => handlers.act("restore", [message]),
             }
           : handlers.canArchive(message)
             ? {
                 title: "Archive",
                 icon: "archivebox",
-                run: () => handlers.act("archive", [message]),
+                tint: context.archive,
+                onPerform: () => handlers.act("archive", [message]),
               }
             : undefined
       }
       trailing={{
         title: context.destructiveTitle,
         icon: "trash",
-        run: () => handlers.act(context.destructive, [message]),
+        tint: context.error,
+        onPerform: () => handlers.act(context.destructive, [message]),
       }}
     />
   );
@@ -885,9 +939,51 @@ function renderRow({ item, target, extraData }: ListRenderItemInfo<Row>) {
       }}
       asChild
     >
-      <Link.Trigger>{row}</Link.Trigger>
+      <Link.Trigger withAppleZoom>{row}</Link.Trigger>
       {handlers.rowMenu(message)}
     </Link>
+  );
+}
+
+/** A day's header: tap to fold its rows away, the chevron turning with them. */
+function DayHeader({
+  day,
+  count,
+  unread,
+  collapsed,
+  sticky,
+  canvas,
+  onToggle,
+}: {
+  day: number;
+  count: number;
+  unread: number;
+  collapsed: boolean;
+  sticky: boolean;
+  canvas: string;
+  onToggle: () => void;
+}) {
+  const chevron = useAnimatedStyle(() => ({
+    transform: [{ rotate: withTiming(collapsed ? "-90deg" : "0deg", { duration: 300 }) }],
+  }));
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: !collapsed }}
+      onPress={onToggle}
+      style={[styles.day, sticky ? { backgroundColor: canvas } : styles.dayGap]}
+    >
+      <Animated.View style={chevron}>
+        <Icon name="chevron.down" size={9} color="mutedForeground" />
+      </Animated.View>
+      <Text size="body" weight="medium" style={{ flex: 1 }}>
+        {dayLabel(day)}
+      </Text>
+      <Text size="body" color="mutedForeground" tabular>
+        {count}
+        {unread > 0 ? ` · ${unread} unread` : ""}
+      </Text>
+    </Pressable>
   );
 }
 

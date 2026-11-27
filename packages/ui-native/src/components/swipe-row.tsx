@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { Pressable, View, type LayoutChangeEvent } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -49,9 +50,9 @@ const listOf = (actions: SwipeAction | SwipeAction[] | undefined) =>
 /** Where the row whose actions are showing is: another one opening closes it, as a List does. */
 let openRow: SharedValue<number> | null = null;
 
-const settle = (at: SharedValue<number>, to = 0) => {
+const settle = (at: SharedValue<number>, to = 0, delay = 0) => {
   "worklet";
-  at.set(withSpring(to, { duration: 400, dampingRatio: 0.8 }));
+  at.set(withDelay(delay, withSpring(to, { duration: 400, dampingRatio: 0.8 })));
 };
 
 /**
@@ -64,16 +65,22 @@ const settle = (at: SharedValue<number>, to = 0) => {
  * Several actions a side (an array) are SwiftUI's `swipeActions`: let go partway and the row stays
  * open on its buttons, in their colors, the first at the edge; pull on past them and the first
  * runs, as `allowsFullSwipe`.
+ *
+ * `item`: what the row shows, in a list that reuses rows (FlashList). A row whose action ran stays
+ * out until the list gives it another item, which it shows closed, so the row it took out doesn't
+ * come back first; it comes back on its own only if it is still there a moment later.
  */
 export function SwipeRow({
   leading,
   trailing,
   square = false,
+  item,
   children,
 }: {
   leading?: SwipeAction | SwipeAction[];
   trailing?: SwipeAction | SwipeAction[];
   square?: boolean;
+  item?: string;
   children: ReactNode;
 }) {
   const theme = useTheme();
@@ -94,6 +101,13 @@ export function SwipeRow({
   /** How far the row opens on each side's buttons: 0 for one action, which only runs. */
   const leadingOpen = leadingActions.length > 1 ? leadingActions.length * BUTTON_WIDTH : 0;
   const trailingOpen = trailingActions.length > 1 ? trailingActions.length * BUTTON_WIDTH : 0;
+  const reused = item !== undefined;
+
+  useLayoutEffect(() => {
+    offset.set(0);
+    committing.set(false);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Closes the row for each item a list gives it.
+  }, [item, offset, committing]);
 
   const perform = (which: "leading" | "trailing") =>
     (which === "leading" ? leadingActions : trailingActions)[0]?.onPerform();
@@ -169,7 +183,8 @@ export function SwipeRow({
         withTiming(direction * width.get(), { duration: 220 }, (finished) => {
           if (!finished) return;
           scheduleOnRN(perform, direction > 0 ? "leading" : "trailing");
-          offset.set(0);
+          if (reused) settle(offset, 0, 700);
+          else offset.set(0);
           committing.set(false);
         }),
       );
