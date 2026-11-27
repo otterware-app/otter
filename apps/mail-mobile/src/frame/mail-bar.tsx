@@ -11,7 +11,12 @@ import { alpha, useTheme } from "@otter/ui-native/theme";
 import { useEffect, useState, type ReactNode } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { FadeOut, withSpring } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  type EntryExitAnimationFunction,
+} from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -114,6 +119,25 @@ export function MailBar({
     { title: "Settings", icon: "gearshape.fill", run: onSettings },
   ] as const;
   const selected = label === "INBOX" ? 0 : label === "STARRED" ? 1 : 2;
+  const lit = hover ?? selected;
+  const pill = useSharedValue(lit);
+  const shown = useSharedValue(reading ? 0 : 1);
+  useEffect(() => {
+    pill.set(withSpring(lit, { duration: 250, dampingRatio: 0.8 }));
+  }, [lit, pill]);
+  useEffect(() => {
+    shown.set(withSpring(reading ? 0 : 1, { duration: 300, dampingRatio: 0.9 }));
+  }, [reading, shown]);
+  const cell = width / tabs.length;
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pill.get() * cell + (cell - TAB_WIDTH) / 2 }],
+  }));
+  // The tabs tuck under the pill while you read on, and the pill settles down to the edge.
+  const tuck = useAnimatedStyle(() => ({ height: TUCKED + (TABS_HEIGHT - TUCKED) * shown.get() }));
+  const tabsStyle = useAnimatedStyle(() => ({
+    opacity: shown.get(),
+    transform: [{ translateY: (1 - shown.get()) * 24 }],
+  }));
   const perform = (index: number) => tabs[index]?.run();
   const indexAt = (x: number) => {
     "worklet";
@@ -137,10 +161,7 @@ export function MailBar({
       scheduleOnRN(setHover, null);
     });
   return (
-    <View
-      pointerEvents="box-none"
-      style={[styles.bars, { paddingBottom: insets.bottom + (reading ? 8 : 0) }]}
-    >
+    <View pointerEvents="box-none" style={[styles.bars, { paddingBottom: insets.bottom }]}>
       <View
         pointerEvents="none"
         style={[styles.barBacking, { backgroundColor: theme.colors.canvas }]}
@@ -178,37 +199,41 @@ export function MailBar({
           <Icon name="square.and.pencil" size={16} tint={theme.colors.canvas} />
         </Pressable>
       </Glass>
-      {!reading && (
+      <Animated.View pointerEvents={reading ? "none" : "box-none"} style={tuck}>
         <GestureDetector gesture={slide}>
-          <View
-            style={styles.tabs}
+          <Animated.View
+            style={[styles.tabs, tabsStyle]}
             onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}
           >
+            {width > 0 && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.tabPill,
+                  { backgroundColor: alpha(theme.colors.foreground, 0.07) },
+                  pillStyle,
+                ]}
+              />
+            )}
             {tabs.map((tab, index) => {
-              const lit = (hover ?? selected) === index;
               const onHold = "onHold" in tab ? tab.onHold : undefined;
               return (
                 <Pressable
                   key={tab.title}
                   accessibilityRole="button"
                   accessibilityLabel={tab.title}
-                  accessibilityState={{ selected: lit }}
+                  accessibilityState={{ selected: lit === index }}
                   accessibilityActions={onHold ? [{ name: "recent", label: "Recent" }] : undefined}
                   onAccessibilityAction={onHold}
                   onPress={tab.run}
                   onLongPress={onHold}
                   style={styles.tab}
                 >
-                  <View
-                    style={[
-                      styles.tabIcon,
-                      lit && { backgroundColor: alpha(theme.colors.foreground, 0.07) },
-                    ]}
-                  >
+                  <View style={styles.tabIcon}>
                     <Icon
                       name={tab.icon}
                       size={18}
-                      color={lit ? "foreground" : "mutedForeground"}
+                      color={lit === index ? "foreground" : "mutedForeground"}
                     />
                     {"dot" in tab && tab.dot ? (
                       <View style={[styles.inboxDot, { backgroundColor: theme.colors.primary }]} />
@@ -217,9 +242,9 @@ export function MailBar({
                 </Pressable>
               );
             })}
-          </View>
+          </Animated.View>
         </GestureDetector>
-      )}
+      </Animated.View>
     </View>
   );
 }
@@ -348,16 +373,29 @@ export function MailboxPicker({
   );
 }
 
-const spring = { duration: 300, dampingRatio: 0.8 };
+const spring = { duration: 400, dampingRatio: 0.85 };
+const TABS_HEIGHT = 44;
+const TUCKED = 8;
+const TAB_WIDTH = 58;
 
-/** Grows from the bar, as `.transition(.scale(scale: 0.6, anchor:))`. */
-function cardIn() {
+/** Grows from the bar and back into it, as `.transition(.scale(scale: 0.6, anchor:))`. */
+const cardIn: EntryExitAnimationFunction = () => {
   "worklet";
   return {
     initialValues: { opacity: 0, transform: [{ scale: 0.6 }] },
     animations: { opacity: withSpring(1, spring), transform: [{ scale: withSpring(1, spring) }] },
   };
-}
+};
+const cardOut: EntryExitAnimationFunction = () => {
+  "worklet";
+  return {
+    initialValues: { opacity: 1, transform: [{ scale: 1 }] },
+    animations: {
+      opacity: withSpring(0, spring),
+      transform: [{ scale: withSpring(0.6, spring) }],
+    },
+  };
+};
 
 /** The bar's height over the safe area: the pill, and the tabs unless they're tucked away. */
 export const barHeight = (reading: boolean) => (reading ? 56 : 92);
@@ -391,7 +429,7 @@ export function MailPopover({
         <Animated.View
           accessibilityViewIsModal
           entering={cardIn}
-          exiting={FadeOut.duration(180)}
+          exiting={cardOut}
           style={[
             styles.popover,
             {
@@ -646,7 +684,7 @@ export function RecentsCard({
 }
 
 const styles = StyleSheet.create({
-  bars: { position: "absolute", left: 0, right: 0, bottom: 0, gap: 4 },
+  bars: { position: "absolute", left: 0, right: 0, bottom: 0 },
   barBacking: { position: "absolute", left: 0, right: 0, top: 24, bottom: 0 },
   pill: { flexDirection: "row", alignItems: "center", padding: 5, gap: 4, marginHorizontal: 16 },
   dockIcon: {
@@ -664,7 +702,14 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
     gap: 8,
   },
-  tabs: { minHeight: 40, marginHorizontal: 32, flexDirection: "row", alignItems: "center" },
+  tabs: {
+    height: 40,
+    marginTop: 4,
+    marginHorizontal: 32,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tabPill: { position: "absolute", left: 0, width: TAB_WIDTH, height: 34, borderRadius: 17 },
   tab: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center" },
   tabIcon: {
     width: 58,

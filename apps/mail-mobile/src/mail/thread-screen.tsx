@@ -13,7 +13,7 @@ import { alpha, useTheme } from "@otter/ui-native/theme";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActionSheetIOS, ScrollView, StyleSheet, View } from "react-native";
+import { ActionSheetIOS, LayoutAnimation, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CodeCard } from "./code-card.tsx";
@@ -340,12 +340,15 @@ function Conversation({ scope, label, thread }: { scope: string; label: string; 
                 agents={agents}
                 fullWidth={fullWidth}
                 opened={expanded[message.id] ?? message.id === latest.id}
-                toggle={() =>
+                toggle={() => {
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.create(200, "easeInEaseOut", "opacity"),
+                  );
                   setExpanded((current) => ({
                     ...current,
                     [message.id]: !(current[message.id] ?? message.id === latest.id),
-                  }))
-                }
+                  }));
+                }}
                 onCompose={compose}
               />
             ))}
