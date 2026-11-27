@@ -218,6 +218,13 @@ describe("a call", () => {
       text: "Hello there",
       final: true,
     });
+    await vi.advanceTimersByTimeAsync(2000);
+    core.emit({ talkId: "t1", type: "transcript", role: "assistant", text: "Next", final: false });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(talk.callUnsaid()).toBe(4);
+    core.emit({ talkId: "t1", type: "audio", audio: second });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(talk.callUnsaid()).toBe(0);
     core.emit({ talkId: "t1", type: "transcript", role: "assistant", text: "Bye", final: false });
     core.emit({ talkId: "t1", type: "audio", audio: second });
     core.emit({ talkId: "t1", type: "clear" });
