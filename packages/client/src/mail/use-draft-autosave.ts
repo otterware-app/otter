@@ -81,7 +81,8 @@ export function useDraftAutosave({
   const unmountedRef = useRef(false);
   const pausedRef = useRef(!enabled);
   const remoteRef = useLatest(remote);
-  const [sessionKey] = useState(() => initialSessionKey ?? crypto.randomUUID());
+  // Core's session keeps the draft id the last save made: a new draft needs a new session.
+  const sessionKeyRef = useRef(initialSessionKey ?? crypto.randomUUID());
   const snapshotRef = useRef(initialDirty ? "" : signal);
 
   const signalRef = useLatest(signal);
@@ -162,6 +163,13 @@ export function useDraftAutosave({
     }
   };
 
+  const startNewDraft = () => {
+    draftIdRef.current = null;
+    versionRef.current = null;
+    messageIdRef.current = null;
+    sessionKeyRef.current = crypto.randomUUID();
+  };
+
   const markGone = () => {
     console.log("[useDraftAutosave:gone]", { draftId: draftIdRef.current });
     pausedRef.current = true;
@@ -184,15 +192,13 @@ export function useDraftAutosave({
         } catch {
           // orphan gets reconciled by sync
         }
-        draftIdRef.current = null;
-        versionRef.current = null;
-        messageIdRef.current = null;
+        startNewDraft();
         adoptedThreadRef.current = null;
       }
       const res = await mailApi.saveDraft({
         accountId: account,
         draftId: draftIdRef.current ?? undefined,
-        sessionKey,
+        sessionKey: sessionKeyRef.current,
         expectMessageId: draftIdRef.current ? (messageIdRef.current ?? undefined) : undefined,
         expectRevision: draftIdRef.current ? (versionRef.current ?? undefined) : undefined,
         ...payload,
@@ -270,6 +276,7 @@ export function useDraftAutosave({
     };
   }, [accountRef, handleRemoteVersionForEffect, markGoneForEffect]);
 
+  const startNewDraftForEffect = useLatest(startNewDraft);
   // Flush the last edits and refresh the lists once, on the way out. With an
   // unresolved conflict (or the draft gone), the user's text is kept as a new
   // draft instead of overwriting the other version.
@@ -281,14 +288,12 @@ export function useDraftAutosave({
         return;
       }
       if (remoteRef.current) {
-        draftIdRef.current = null;
-        versionRef.current = null;
-        messageIdRef.current = null;
+        startNewDraftForEffect.current();
         pausedRef.current = false;
       }
       void trigger().finally(() => refreshRef.current());
     },
-    [refreshRef, remoteRef, trigger, autosaveRef],
+    [refreshRef, remoteRef, trigger, autosaveRef, startNewDraftForEffect],
   );
 
   const takeTheirs = () => {
@@ -309,9 +314,7 @@ export function useDraftAutosave({
   };
 
   const saveAsNew = () => {
-    draftIdRef.current = null;
-    versionRef.current = null;
-    messageIdRef.current = null;
+    startNewDraft();
     snapshotRef.current = "";
     setRemote(null);
     pausedRef.current = false;
@@ -331,7 +334,11 @@ export function useDraftAutosave({
     const account = draftAccountRef.current ?? accountRef.current;
     if (opts?.deleteDraft && account) {
       try {
-        await mailApi.deleteSessionDraft(account, sessionKey, draftIdRef.current ?? undefined);
+        await mailApi.deleteSessionDraft(
+          account,
+          sessionKeyRef.current,
+          draftIdRef.current ?? undefined,
+        );
       } catch {
         // sync reconciles leftovers
       }
@@ -356,12 +363,12 @@ export function useDraftAutosave({
 
   /** What sending needs to send the draft itself: the backend knows the session's draft. */
   const sending = (accountId: string) => ({
-    sessionKey,
+    sessionKey: sessionKeyRef.current,
     draftId: draftAccountRef.current === accountId ? (draftIdRef.current ?? undefined) : undefined,
   });
 
   const anchor = (account: string): DraftAnchor => ({
-    sessionKey,
+    sessionKey: sessionKeyRef.current,
     draftId: draftAccountRef.current === account ? draftIdRef.current : null,
     messageId: draftAccountRef.current === account ? messageIdRef.current : null,
     revision: draftAccountRef.current === account ? versionRef.current : null,
